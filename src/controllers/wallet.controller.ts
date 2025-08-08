@@ -8,11 +8,13 @@ import {
   HttpCode,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { ApiTags, ApiParam } from '@nestjs/swagger';
 import { WalletService } from '../services/wallet.service';
 import {
   CreateWalletDto,
 } from '../dto/wallet.dto';
 
+@ApiTags('wallets')
 @Controller('wallets')
 export class WalletController {
   constructor(private readonly walletService: WalletService) {}
@@ -25,6 +27,10 @@ export class WalletController {
   }
 
   @Get(':walletId')
+  @ApiParam({ 
+    name: 'walletId', 
+    type: 'string'
+  })
   async fetchWalletById(
     @Param('walletId', ParseUUIDPipe) walletId: string,
   ) {
