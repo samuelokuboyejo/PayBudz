@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 // src/wallet/dto/create-wallet.dto.ts
 import { IsIn, IsString, Length } from '@nestjs/class-validator';
 import { ApiProperty } from '@nestjs/swagger';

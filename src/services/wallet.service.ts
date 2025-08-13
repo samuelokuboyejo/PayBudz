@@ -1,10 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
-import { Wallet } from '../entities/wallet.entity';
+/* eslint-disable prettier/prettier */
 import {
-  CreateWalletDto,
-} from '../dto/wallet.dto';
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource,} from 'typeorm';
+import { Wallet } from '../entities/wallet.entity';
+import { CreateWalletDto, } from '../dto/wallet.dto';
 
 @Injectable()
 export class WalletService {
@@ -12,12 +15,12 @@ export class WalletService {
     @InjectRepository(Wallet)
     private walletRepository: Repository<Wallet>,
     private dataSource: DataSource,
-  ) {}
+  ) { }
 
   async createWallet(createWalletDto: CreateWalletDto): Promise<Wallet> {
     const wallet = this.walletRepository.create({
       currency: createWalletDto.currency,
-      isActive: true
+      isActive: false,
     });
 
     return await this.walletRepository.save(wallet);
@@ -25,7 +28,7 @@ export class WalletService {
 
   async findWalletById(walletId: string): Promise<Wallet> {
     const wallet = await this.walletRepository.findOne({
-      where: { id: walletId }
+      where: { id: walletId },
     });
 
     if (!wallet) {
@@ -35,5 +38,37 @@ export class WalletService {
     return wallet;
   }
 
-  // todo: add methods to activate and deactivate a wallet.
+
+  async activateWallet(walletId: string): Promise<Wallet> {
+    const wallet = await this.findWalletById(walletId);
+
+    if (!wallet) {
+      throw new NotFoundException('Wallet with id found');
+    }
+
+    if (wallet.isActive) {
+      throw new BadRequestException('Wallet already active');
+    }
+
+    wallet.isActive = true;
+    return this.walletRepository.save(wallet);
+  }
+
+  async deactivateWallet(walletId: string): Promise<Wallet> {
+    const wallet = await this.findWalletById(walletId);
+
+    if (!wallet) {
+      throw new NotFoundException('Wallet with id found');
+    }
+
+    if (!wallet.isActive) {
+      throw new BadRequestException('Wallet already inactive');
+    }
+
+    wallet.isActive = false;
+    return this.walletRepository.save(wallet);
+  }
+
+
+ 
 }

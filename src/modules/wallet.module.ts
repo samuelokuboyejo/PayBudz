@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 // src/wallets/wallet.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
