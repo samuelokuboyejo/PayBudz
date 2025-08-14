@@ -44,20 +44,22 @@ export class WalletController {
 
   @ApiParam({ 
     name: 'walletId', 
-    type: 'string'
+    type: 'string',
+    required: true
   })
-@Put(':id/activate')
-  async activateWallet(@Param('id') walletId: string): Promise<Wallet>{
+@Put(':walletId/activate')
+  async activateWallet(@Param('walletId') walletId: string): Promise<Wallet>{
     const wallet = await this.walletService.activateWallet(walletId)
     return wallet;
   }
 
 @ApiParam({ 
     name: 'walletId', 
-    type: 'string'
+    type: 'string',
+    required: true
   }) 
-@Put('{}:id/deactivate')
-  async deactivateWallet(@Param('id') walletId: string): Promise<Wallet>{
+@Put(':walletId/deactivate')
+  async deactivateWallet(@Param('walletId') walletId: string): Promise<Wallet>{
     const wallet = await this.walletService.deactivateWallet(walletId)
     return wallet;
   }
