@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { WalletController } from 'src/controllers/wallet.controller';
-import { WalletService } from 'src/services/wallet.service';
-import { CreateWalletDto } from 'src/dto/wallet.dto';
+import { WalletController } from '../../src/controllers/wallet.controller';
+import { WalletService } from '../../src/services/wallet.service';
+import { CreateWalletDto } from '../../src/dto/wallet.dto';
 import { NotFoundException } from '@nestjs/common';
-import { Wallet } from 'src/entities/wallet.entity';
+import { Wallet } from '../../src/entities/wallet.entity';
 
 describe('WalletController', () => {
   let controller: WalletController;

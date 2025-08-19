@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { WalletService } from './wallet.service';
-import { Wallet } from '../entities/wallet.entity';
+import { WalletService } from '../../src//services/wallet.service';
+import { Wallet } from '../../src/entities/wallet.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
-import { CreateWalletDto } from '../dto/wallet.dto';
+import { CreateWalletDto } from '../../src/dto/wallet.dto';
 
 // Create mock repository
 const mockWalletRepository = () => ({
@@ -37,7 +37,8 @@ describe('WalletService', () => {
   describe('createWallet', () => {
     it('should create and save a new wallet', async () => {
       const dto: CreateWalletDto = { currency: 'USD' };
-      const createdWallet: Wallet = { id: '123', currency: 'USD', isActive: true };
+      const now = new Date();
+      const createdWallet: Wallet = { id: '123', currency: 'USD', isActive: false, createdAt: now, updatedAt: now };
 
       walletRepository.create.mockReturnValue(createdWallet);
       walletRepository.save.mockResolvedValue(createdWallet);
@@ -46,7 +47,7 @@ describe('WalletService', () => {
 
       expect(walletRepository.create).toHaveBeenCalledWith({
         currency: 'USD',
-        isActive: true,
+        isActive: false,
       });
 
       expect(walletRepository.save).toHaveBeenCalledWith(createdWallet);
