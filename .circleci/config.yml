@@ -1,15 +1,92 @@
 version: 2.1
-# See: https://circleci.com/docs/jobs-steps/#jobs-overview & https://circleci.com/docs/configuration-reference/#jobs
+
+orbs:
+  slack: circleci/slack@4.12.5
+
 jobs:
-  say-hello:
+  test:
     docker:
-      - image: cimg/base:current
+      - image: cimg/node:18.16  # adjust Node.js version if needed
     steps:
       - checkout
       - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+          name: Install dependencies
+          command: npm ci
+      - run:
+          name: Run unit tests
+          command: npm test
+      - slack/notify:
+          event: fail
+          template: basic_fail_1
+      - slack/notify:
+          event: pass
+          template: basic_success_1
+
+  deploy-staging:
+    docker:
+      - image: cimg/node:18.16
+    steps:
+      - checkout
+      - run:
+          name: Deploy to Staging
+          command: |
+            echo "Deploying to staging..."
+            # Replace with your staging deployment script or command
+      - slack/notify:
+          event: always
+          template: basic_success_1
+
+  deploy-production:
+    docker:
+      - image: cimg/node:18.16
+    steps:
+      - checkout
+      - run:
+          name: Deploy to Production
+          command: |
+            echo "Deploying to production..."
+            # Replace with your production deployment script or command
+      - slack/notify:
+          event: always
+          template: basic_success_1
+
 workflows:
-  say-hello-workflow:
+  version: 2
+
+  # Run tests for PRs
+  pr-tests:
     jobs:
-      - say-hello
+      - test:
+          filters:
+            branches:
+              ignore:
+                - master
+
+  # Run tests + staging deploy on master
+  staging-deploy:
+    jobs:
+      - test:
+          filters:
+            branches:
+              only: master
+      - deploy-staging:
+          requires:
+            - test
+          filters:
+            branches:
+              only: master
+
+  # Manual production deployment
+  production-deploy:
+    jobs:
+      - approve-production:
+          type: approval
+          filters:
+            branches:
+              only: master
+      - deploy-production:
+          requires:
+            - approve-production
+          filters:
+            branches:
+              only: master
