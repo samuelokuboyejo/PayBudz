@@ -6,7 +6,7 @@ orbs:
 jobs:
   test:
     docker:
-      - image: cimg/node:18.16  # adjust Node.js version if needed
+      - image: cimg/node:18.16 # adjust Node.js version if needed
     steps:
       - checkout
       - run:

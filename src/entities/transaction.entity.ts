@@ -1,43 +1,48 @@
 /* eslint-disable prettier/prettier */
-import { TransactionStatus } from "src/enums/transaction-status.enum";
-import { TransactionType } from "src/enums/transaction-type.enum";
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { TransactionStatus } from 'src/enums/transaction-status.enum';
+import { TransactionType } from 'src/enums/transaction-type.enum';
+import {
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity('transactions')
 export class Transaction {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column({name: 'wallet_id'})
-    walletId: string;
+  @Column({ name: 'wallet_id', type: 'uuid' })
+  walletId: string;
 
-    @Column({name: 'amount'})
-    amount: number;
+  @Column({ name: 'amount' })
+  amount: number;
 
-    @Column({ type: 'json', nullable: true })
-    metaData?: Record<string, any>;
+  @Column({ name: 'currency', length: 3 })
+  currency: string;
 
-    @Column({
-        type: 'enum',
-        enum: TransactionStatus,
-        default: TransactionStatus.PENDING,
-    })
-    status: TransactionStatus;
+  @Column({ type: 'json', nullable: true })
+  metadata?: Record<string, any>;
 
+  @Column({
+    type: 'enum',
+    enum: TransactionStatus,
+    enumName: 'transaction_status',
+    default: TransactionStatus.PENDING,
+  })
+  status: TransactionStatus;
 
-    @Column({
-        type: 'enum',
-        enum: TransactionType,
-    })
-    type: TransactionType;
+  @Column({
+    type: 'enum',
+    enum: TransactionType,
+  })
+  type: TransactionType;
 
-    @Column({name: 'narration'})
-    narration?: string;
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
-    @Column({name: 'reference'})
-    reference: string;
-
-   @CreateDateColumn({name: 'created_at'})
-    createdAt: Date;
-
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 }

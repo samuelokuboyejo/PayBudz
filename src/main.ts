@@ -5,7 +5,6 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './modules/app.module';
 
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
@@ -27,25 +26,31 @@ async function bootstrap() {
 
   // CORS (adjust for your needs)
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:3000',
+    ],
     credentials: true,
   });
 
   // Swagger API documentation
   const config = new DocumentBuilder()
     .setTitle('Wallet Microservice API')
-    .setDescription('A secure, auditable wallet service with ledger-based architecture')
+    .setDescription(
+      'A secure, auditable wallet service with ledger-based architecture',
+    )
     .setVersion('1.0')
     .addTag('wallets')
     .build();
-  
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(port);
-  
+
   logger.log(`🚀 Wallet microservice running on port ${port}`);
-  logger.log(`📚 API documentation available at http://localhost:${port}/api/docs`);
+  logger.log(
+    `📚 API documentation available at http://localhost:${port}/api/docs`,
+  );
 }
 
 bootstrap().catch((error) => {

@@ -1,9 +1,12 @@
+/* eslint-disable prettier/prettier */
 import { Test, TestingModule } from '@nestjs/testing';
 import { WalletController } from '../../src/controllers/wallet.controller';
 import { WalletService } from '../../src/services/wallet.service';
 import { CreateWalletDto } from '../../src/dto/wallet.dto';
+import { WalletBalanceDto } from '../../src/dto/wallet-balance.dto';
 import { NotFoundException } from '@nestjs/common';
 import { Wallet } from '../../src/entities/wallet.entity';
+import { SupportedCurrencies } from '../../src/enums/currency.enum';
 
 describe('WalletController', () => {
   let controller: WalletController;
@@ -13,6 +16,7 @@ describe('WalletController', () => {
     const mockWalletService = {
       createWallet: jest.fn(),
       findWalletById: jest.fn(),
+      getWalletBalance: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -31,13 +35,13 @@ describe('WalletController', () => {
 
   describe('createWallet', () => {
     it('should call walletService.createWallet and return the result', async () => {
-      const dto: CreateWalletDto = { currency: 'USD' };
+      const dto: CreateWalletDto = { currency: SupportedCurrencies.USD };
       const createdWallet: Wallet = {
         id: 'wallet-id-123',
-        currency: 'USD',
+        currency: SupportedCurrencies.USD,
         isActive: true,
         createdAt: new Date(),
-        updatedAt: null
+        updatedAt: new Date(),
       };
 
       service.createWallet.mockResolvedValue(createdWallet);
@@ -52,7 +56,11 @@ describe('WalletController', () => {
   describe('fetchWalletById', () => {
     it('should return the wallet when found', async () => {
       const walletId = 'wallet-id-abc';
-      const wallet = { id: walletId, currency: 'NGN', isActive: true };
+      const wallet = {
+        id: walletId,
+        currency: SupportedCurrencies.NGN,
+        isActive: true,
+      };
 
       service.findWalletById.mockResolvedValue(wallet as Wallet);
 
@@ -64,9 +72,30 @@ describe('WalletController', () => {
 
     it('should throw NotFoundException when wallet is not found', async () => {
       const walletId = 'non-existent-id';
-      service.findWalletById.mockRejectedValue(new NotFoundException('Wallet not found'));
+      service.findWalletById.mockRejectedValue(
+        new NotFoundException('Wallet not found'),
+      );
 
-      await expect(controller.fetchWalletById(walletId)).rejects.toThrow(NotFoundException);
+      await expect(controller.fetchWalletById(walletId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('getWalletBalance', () => {
+    it('should retrieve the wallet balance of a user', async () => {
+      const mockResponse: WalletBalanceDto = {
+        walletId: 'wallet-id-abc',
+        availableBalance: 500,
+        currency: SupportedCurrencies.NGN,
+      };
+
+      service.getWalletBalance.mockResolvedValue(mockResponse);
+
+      const result = await controller.getWalletBalance('wallet-id-abc');
+
+      expect(result).toEqual(mockResponse);
+      expect(service.getWalletBalance).toHaveBeenCalledWith('wallet-id-abc');
     });
   });
 });

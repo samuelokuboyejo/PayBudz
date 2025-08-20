@@ -4,6 +4,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WalletModule } from './wallet.module';
 import { Wallet } from '../entities/wallet.entity';
+import { Transaction } from 'src/entities/transaction.entity';
+import { TransactionModule } from './transaction.module';
 
 @Module({
   imports: [
@@ -20,14 +22,18 @@ import { Wallet } from '../entities/wallet.entity';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
-        entities: [Wallet],
+        entities: [Wallet, Transaction],
         synchronize: configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
-        ssl: configService.get('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
+        ssl:
+          configService.get('DB_SSL') === 'true'
+            ? { rejectUnauthorized: false }
+            : false,
       }),
       inject: [ConfigService],
     }),
     WalletModule,
+    TransactionModule,
   ],
   controllers: [],
   providers: [],
