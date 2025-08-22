@@ -6,6 +6,8 @@ import { WalletModule } from './wallet.module';
 import { Wallet } from '../entities/wallet.entity';
 import { Transaction } from 'src/entities/transaction.entity';
 import { TransactionModule } from './transaction.module';
+import { TransferModule } from './transfer.module';
+import { Transfer } from 'src/entities/transfer.entity';
 
 @Module({
   imports: [
@@ -22,7 +24,7 @@ import { TransactionModule } from './transaction.module';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
-        entities: [Wallet, Transaction],
+        entities: [Wallet, Transaction, Transfer],
         synchronize: configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
         ssl:
@@ -34,6 +36,7 @@ import { TransactionModule } from './transaction.module';
     }),
     WalletModule,
     TransactionModule,
+    TransferModule,
   ],
   controllers: [],
   providers: [],

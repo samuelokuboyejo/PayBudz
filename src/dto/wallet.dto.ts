@@ -1,5 +1,4 @@
 /* eslint-disable prettier/prettier */
-// src/wallet/dto/create-wallet.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
 import { SupportedCurrencies } from 'src/enums/currency.enum';

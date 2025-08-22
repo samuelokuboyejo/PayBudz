@@ -8,6 +8,7 @@ import { TransactionStatus } from '../../src/enums/transaction-status.enum';
 import { SupportedCurrencies } from '../../src/enums/currency.enum';
 import { TransactionType } from '../../src/enums/transaction-type.enum';
 import { InvalidTransactionStatusTransitionException } from '../../src/exceptions/invalid.transaction.status.transition.exception';
+import { WalletService } from '../../src/services/wallet.service';
 
 const mockTransactionRepository = () => ({
   create: jest.fn(),
@@ -19,12 +20,36 @@ const mockDataSource = () => ({
   query: jest.fn(),
 });
 
+const mockManager = {
+  create: jest.fn(),
+  save: jest.fn(),
+  transaction: jest.fn(),
+};
+
+const sourceWallet = {
+  id: 'source-id',
+  currency: 'USD',
+  isActive: true,
+};
+
+const destinationWallet = {
+  id: 'dest-id',
+  currency: 'USD',
+  isActive: true,
+};
+
 describe('TransactionService', () => {
   let service: TransactionService;
   let transactionRepository: jest.Mocked<Repository<Transaction>>;
   let dataSource: { query: jest.Mock };
+  let walletService: jest.Mocked<Partial<WalletService>>;
 
   beforeEach(async () => {
+    walletService = {
+      findWalletById: jest.fn(),
+      getWalletBalance: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TransactionService,
@@ -33,6 +58,7 @@ describe('TransactionService', () => {
           useFactory: mockTransactionRepository,
         },
         { provide: DataSource, useFactory: mockDataSource },
+        { provide: WalletService, useValue: walletService },
       ],
     }).compile();
 

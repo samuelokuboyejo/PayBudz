@@ -9,7 +9,6 @@ import { CreateWalletDto } from '../../src/dto/wallet.dto';
 import { SupportedCurrencies } from '../../src/enums/currency.enum';
 import { Transaction } from '../../src/entities/transaction.entity';
 
-// Create mock repository
 const mockWalletRepository = () => ({
   create: jest.fn(),
   save: jest.fn(),
@@ -30,7 +29,7 @@ const mockDataSource = () => ({
 describe('WalletService', () => {
   let service: WalletService;
   let walletRepository: jest.Mocked<Repository<Wallet>>;
-  let transactionRepository: jest.Mocked<Repository<Transaction>>
+  let transactionRepository: jest.Mocked<Repository<Transaction>>;
   let dataSource: { query: jest.Mock };
 
   beforeEach(async () => {
