@@ -8,6 +8,12 @@ import { Transaction } from 'src/entities/transaction.entity';
 import { TransactionModule } from './transaction.module';
 import { TransferModule } from './transfer.module';
 import { Transfer } from 'src/entities/transfer.entity';
+import { UserModule } from 'src/user/user.module';
+import { AppService } from 'src/services/app.service';
+import { FirebaseAuthGuard } from 'src/auth/guards/auth.guard';
+import { AppController } from 'src/controllers/app.controller';
+import { User } from 'src/user/entities/user.entity';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [
@@ -24,7 +30,7 @@ import { Transfer } from 'src/entities/transfer.entity';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
-        entities: [Wallet, Transaction, Transfer],
+        entities: [Wallet, Transaction, Transfer, User],
         synchronize: configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
         ssl:
@@ -37,8 +43,10 @@ import { Transfer } from 'src/entities/transfer.entity';
     WalletModule,
     TransactionModule,
     TransferModule,
+    UserModule,
+    AuthModule,
   ],
-  controllers: [],
-  providers: [],
+  controllers: [AppController],
+  providers: [AppService, FirebaseAuthGuard],
 })
 export class AppModule {}

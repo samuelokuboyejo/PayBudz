@@ -128,7 +128,6 @@ describe('TransferService', () => {
   });
 
   describe('transfer', () => {
- 
     it('should throw an error if source wallet is inactive', async () => {
       walletService.findWalletById = jest
         .fn()

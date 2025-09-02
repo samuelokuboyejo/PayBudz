@@ -54,11 +54,11 @@ export class TransferService {
     const destinationWallet = await this.walletService.findWalletById(
       dto.destinationWalletId,
     );
-    
+
     const sourceWallet = await this.walletService.findWalletById(
       dto.sourceWalletId,
     );
-    
+
     if (!sourceWallet.isActive || !destinationWallet.isActive) {
       throw new BadRequestException('One or both wallets are inactive');
     }

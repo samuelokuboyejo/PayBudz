@@ -1,0 +1,32 @@
+import { Module } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
+import { JwtModule } from '@nestjs/jwt';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from 'src/user/entities/user.entity';
+import { HttpModule } from '@nestjs/axios';
+import { FirebaseModule } from 'src/modules/firebase.module';
+import { WalletModule } from 'src/modules/wallet.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([User]),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: {
+          expiresIn: configService.get<string>('JWT_EXPIRE_IN'),
+        },
+      }),
+    }),
+    FirebaseModule,
+    WalletModule,
+    HttpModule,
+  ],
+  providers: [AuthService],
+  controllers: [AuthController],
+})
+export class AuthModule {}

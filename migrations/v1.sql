@@ -158,4 +158,3 @@ FOR EACH ROW
 EXECUTE FUNCTION update_wallet_balance_trigger();
 
 
-

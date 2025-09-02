@@ -1,4 +1,5 @@
 /* eslint-disable prettier/prettier */
+import { SupportedCurrencies } from 'src/enums/currency.enum';
 import {
   Entity,
   Column,
@@ -13,7 +14,7 @@ export class Wallet {
   id: string;
 
   @Column({ name: 'currency', length: 3 })
-  currency: string;
+  currency: SupportedCurrencies;
 
   @Column({ name: 'is_active' })
   isActive: boolean;
