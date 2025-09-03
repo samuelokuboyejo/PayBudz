@@ -8,12 +8,12 @@ import { Transaction } from 'src/entities/transaction.entity';
 import { TransactionModule } from './transaction.module';
 import { TransferModule } from './transfer.module';
 import { Transfer } from 'src/entities/transfer.entity';
-import { UserModule } from 'src/user/user.module';
+import { UserModule } from 'src/modules/user.module';
 import { AppService } from 'src/services/app.service';
 import { FirebaseAuthGuard } from 'src/auth/guards/auth.guard';
 import { AppController } from 'src/controllers/app.controller';
-import { User } from 'src/user/entities/user.entity';
-import { AuthModule } from 'src/auth/auth.module';
+import { User } from 'src/entities/user.entity';
+import { AuthModule } from 'src/modules/auth.module';
 
 @Module({
   imports: [

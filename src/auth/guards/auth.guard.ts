@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as admin from 'firebase-admin';
-import { UserService } from 'src/user/user.service';
+import { UserService } from 'src/services/user.service';
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
   constructor(private userService: UserService) {}

@@ -1,18 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserService } from './user.service';
-import { NotFoundException } from '@nestjs/common';
+import { UserService } from '../../src/services/user.service';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
+import { User } from '../../src/entities/user.entity';
 
 describe('UserService', () => {
   let userService: UserService;
-  let userRepository: Repository<User>;
+  let userRepository: jest.Mocked<Repository<User>>;
 
   const mockUser: User = {
     id: 'user-1',
     firstName: 'Samuel',
     lastName: 'Okuboyejo',
+    username: 'max123',
     email: 'sammy@example.com',
     isVerified: true,
     dateOfBirth: null,
@@ -25,6 +26,9 @@ describe('UserService', () => {
 
   const mockRepository = {
     findOne: jest.fn(),
+    exists: jest.fn(),
+    update: jest.fn(),
+    findOneByOrFail: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -39,7 +43,9 @@ describe('UserService', () => {
     }).compile();
 
     userService = module.get<UserService>(UserService);
-    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    userRepository = module.get(getRepositoryToken(User)) as jest.Mocked<
+      Repository<User>
+    >;
   });
 
   afterEach(() => {
@@ -88,5 +94,48 @@ describe('UserService', () => {
     await expect(
       userService.findByEmail('nonexistent@example.com'),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  describe('checkUsernameAvailability', () => {
+    it('should return false if username is reserved', async () => {
+      const result = await userService.checkUsernameAvailability('admin');
+      expect(result).toEqual({ available: false });
+    });
+
+    it('should return false if username already exists', async () => {
+      userRepository.exists.mockResolvedValue(true);
+      const result = await userService.checkUsernameAvailability('john');
+      expect(result).toEqual({ available: false });
+    });
+
+    it('should return true if username is valid and available', async () => {
+      userRepository.exists.mockResolvedValue(false);
+      const result = await userService.checkUsernameAvailability('john123');
+      expect(result).toEqual({ available: true });
+    });
+  });
+
+  describe('updateUsername', () => {
+    it('should update username when available', async () => {
+      userRepository.exists.mockResolvedValue(false);
+      userRepository.findOneByOrFail.mockResolvedValue({
+        id: '123',
+        username: 'newname',
+      } as User);
+
+      const result = await userService.updateUsername('123', 'NewName');
+      expect(userRepository.update).toHaveBeenCalledWith('123', {
+        username: 'newname',
+      });
+      expect(result).toEqual({ id: '123', username: 'newname' });
+    });
+
+    it('should throw conflict if username is not available', async () => {
+      userRepository.exists.mockResolvedValue(true);
+
+      await expect(
+        userService.updateUsername('123', 'TakenName'),
+      ).rejects.toThrow(ConflictException);
+    });
   });
 });

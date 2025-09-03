@@ -1,3 +1,4 @@
+import { IsAlphanumeric } from 'class-validator';
 import { AuthProvider } from 'src/enums/auth-provider.enum';
 import { SupportedCurrencies } from 'src/enums/currency.enum';
 import {
@@ -19,6 +20,11 @@ export class User {
 
   @Column({ type: 'varchar', length: 100 })
   lastName: string;
+
+  @IsAlphanumeric()
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 20, unique: true, nullable: false })
+  username: string;
 
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 255, unique: true })

@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthService } from './auth.service';
+import { AuthService } from '../../src/services/auth.service';
 import { JwtService } from '@nestjs/jwt';
-import { FirebaseService } from 'src/services/firebase.service';
-import { WalletService } from 'src/services/wallet.service';
+import { FirebaseService } from '../../src/services/firebase.service';
+import { WalletService } from '../../src/services/wallet.service';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { of } from 'rxjs';

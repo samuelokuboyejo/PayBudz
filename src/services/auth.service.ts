@@ -3,15 +3,15 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { firstValueFrom } from 'rxjs';
 import { FirebaseService } from 'src/services/firebase.service';
-import { AuthResponse } from './dto/auth-response';
+import { AuthResponse } from '../dto/auth-response';
 import { ConfigService } from '@nestjs/config';
-import { AuthJwtPayload } from './types/auth-jwtPayload';
 import { AuthProvider } from 'src/enums/auth-provider.enum';
 import { SupportedCurrencies } from 'src/enums/currency.enum';
 import { WalletService } from 'src/services/wallet.service';
-import { User } from 'src/user/entities/user.entity';
+import { User } from 'src/entities/user.entity';
 import { DataSource } from 'typeorm';
 import { DecodedToken } from 'src/interfaces/decoded-token.interface';
+import { AuthJwtPayload } from 'src/auth/types/auth-jwtPayload';
 
 @Injectable()
 export class AuthService {
@@ -125,6 +125,7 @@ export class AuthService {
           email: decodedToken.email,
           firstName: fullName[0],
           lastName: fullName.slice(1).join(' ') || 'User',
+          username: decodedToken.email, // we're setting the email as the default username
           isVerified: decodedToken.email_verified ?? false,
           authProvider: authProviderMap,
           firebaseUid: decodedToken.uid,

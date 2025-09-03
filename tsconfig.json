@@ -22,9 +22,5 @@
     "noFallthroughCasesInSwitch": false
   },
 
-  "include": [
-    "src/**/*",
-    "config/**/*",
-    "spec/controllers/wallet.controller.spec.ts"
-  ]
+  "include": ["src/**/*", "config/**/*", "spec/**/*"]
 }
