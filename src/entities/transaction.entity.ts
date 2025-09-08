@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import { TransactionStatus } from 'src/enums/transaction-status.enum';
 import { TransactionType } from 'src/enums/transaction-type.enum';
 import {

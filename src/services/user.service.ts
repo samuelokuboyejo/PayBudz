@@ -42,6 +42,18 @@ export class UserService {
     return user;
   }
 
+  async findByUsername(username: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { username },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
   async updateUsername(
     userId: string,
     newUsername: string,
@@ -79,5 +91,17 @@ export class UserService {
     });
 
     return { available: !exists };
+  }
+
+  async findById(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    return user;
   }
 }

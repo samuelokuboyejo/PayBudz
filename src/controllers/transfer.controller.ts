@@ -1,5 +1,6 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FirebaseAuthGuard } from 'src/auth/guards/auth.guard';
 import { TransferDto } from 'src/dto/transfer.dto';
 import { TransferService } from 'src/services/transfer.service';
 
@@ -8,11 +9,13 @@ import { TransferService } from 'src/services/transfer.service';
 export class TransferController {
   constructor(private readonly transferService: TransferService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Initiate a transfer between wallets' })
   @ApiBody({ type: TransferDto })
-  async transfer(@Body() dto: TransferDto) {
-    const transaction = await this.transferService.transfer(dto);
-    return transaction;
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth('Authorization')
+  @ApiOperation({ summary: 'Transfer funds to another user by username' })
+  @Post('transfer')
+  async transfer(@Body() dto: TransferDto, @Req() req: any) {
+    const sourceUserId = req.user.uid;
+    return this.transferService.transfer(sourceUserId, dto);
   }
 }

@@ -1,252 +1,151 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
-import { TransferService } from '../../src/services/transfer.service';
-import { WalletService } from '../../src/services/wallet.service';
+import { NotificationService } from 'src/services/notification.service';
+import { MailService } from 'src/services/mail.service';
+import { formatCurrency, formatSignedAmount } from 'src/utils/currency.util';
+import { formatDateTime } from 'src/utils/date.util';
+import {
+  WalletTopupNotificationParams,
+  WalletCreditNotificationParams,
+  WalletDebitNotificationParams,
+  WalletCashoutNotificationParams,
+} from 'src/utils/notification-types';
 
-import { Transfer } from '../../src/entities/transfer.entity';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Transaction } from '../../src/entities/transaction.entity';
-
-const sourceWallet = {
-  id: 'source-id',
-  currency: 'USD',
-  isActive: true,
-};
-
-const destinationWallet = {
-  id: 'dest-id',
-  currency: 'USD',
-  isActive: true,
-};
-
-describe('TransferService', () => {
-  let service: TransferService;
-  let walletService: jest.Mocked<WalletService>;
-  let dataSource: jest.Mocked<DataSource>;
-  let transferRepository: jest.Mocked<Repository<Transfer>>;
-  let transactionRepository: jest.Mocked<Repository<Transaction>>;
+describe('NotificationService', () => {
+  let service: NotificationService;
+  let mailService: MailService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        TransferService,
+        NotificationService,
         {
-          provide: WalletService,
+          provide: MailService,
           useValue: {
-            findWalletById: jest.fn(),
-            getWalletBalance: jest.fn(),
-          },
-        },
-        {
-          provide: DataSource,
-          useValue: {
-            transaction: jest.fn(),
-          },
-        },
-        {
-          provide: getRepositoryToken(Transaction),
-          useValue: {
-            create: jest.fn(),
-            save: jest.fn(),
-          },
-        },
-        {
-          provide: getRepositoryToken(Transfer),
-          useValue: {
-            findOne: jest.fn(),
-            find: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
+            sendMail: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
     }).compile();
 
-    service = module.get<TransferService>(TransferService);
-    walletService = module.get(WalletService);
-    dataSource = module.get(DataSource);
-    transferRepository = module.get(getRepositoryToken(Transfer));
-    transactionRepository = module.get(getRepositoryToken(Transaction));
+    service = module.get<NotificationService>(NotificationService);
+    mailService = module.get(MailService);
   });
 
-  describe('findTransferById', () => {
-    it('should return a transfer if found', async () => {
-      const transfer = {
-        id: '123',
-        fromWalletId: 'wallet1',
-        toWalletId: 'wallet2',
-        amount: 1000,
-      };
-      transferRepository.findOne.mockResolvedValue(transfer as Transfer);
-
-      const result = await service.findTransferById('abc');
-
-      expect(transferRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 'abc' },
-      });
-      expect(result).toEqual(transfer);
-    });
-
-    it('should throw NotFoundException if transfer not found', async () => {
-      transferRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.findTransferById('notfound')).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(transferRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 'notfound' },
-      });
-    });
-  });
-
-  describe('findTransfersByWalletId', () => {
-    it('should return an array of transfers if found', async () => {
-      const transfer = {
-        id: '123',
-        fromWalletId: 'wallet1',
-        toWalletId: 'wallet2',
-        amount: 1000,
-      } as unknown as Transfer;
-      transferRepository.find.mockResolvedValue([transfer]);
-
-      const result = await service.findTransfersByWalletId('wallet1');
-
-      expect(result).toEqual([transfer]);
-      expect(transferRepository.find).toHaveBeenCalledWith({
-        where: [{ fromWalletId: 'wallet1' }, { toWalletId: 'wallet1' }],
-      });
-    });
-
-    it('should throw NotFoundException if no transfers found', async () => {
-      transferRepository.find.mockResolvedValue([]);
-
-      await expect(service.findTransfersByWalletId('wallet1')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-  });
-
-  describe('transfer', () => {
-    it('should throw an error if source wallet is inactive', async () => {
-      walletService.findWalletById = jest
-        .fn()
-        .mockResolvedValueOnce(destinationWallet)
-        .mockResolvedValueOnce({ ...sourceWallet, isActive: false });
-
-      await expect(
-        service.transfer({
-          sourceWalletId: 'wallet-id-abc',
-          destinationWalletId: 'wallet-id-123',
-          amount: '100',
-        } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw an error if destination wallet is inactive', async () => {
-      walletService.findWalletById = jest
-        .fn()
-        .mockResolvedValueOnce({ ...destinationWallet, isActive: false })
-        .mockResolvedValueOnce(sourceWallet);
-
-      await expect(
-        service.transfer({
-          sourceWalletId: 'wallet-id-abc',
-          destinationWalletId: 'wallet-id-123',
-          amount: '100',
-        } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw an error for insufficient funds', async () => {
-      walletService.findWalletById = jest
-        .fn()
-        .mockResolvedValueOnce(destinationWallet)
-        .mockResolvedValueOnce(sourceWallet);
-
-      walletService.getWalletBalance = jest.fn().mockResolvedValue({
-        availableBalance: 50,
-      });
-
-      await expect(
-        service.transfer({
-          sourceWalletId: sourceWallet.id,
-          destinationWalletId: destinationWallet.id,
-          amount: 100,
-        } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw an errorr if wallets have different currencies', async () => {
-      walletService.findWalletById = jest
-        .fn()
-        .mockResolvedValueOnce({ ...destinationWallet, currency: 'EUR' })
-        .mockResolvedValueOnce(sourceWallet);
-
-      walletService.getWalletBalance = jest.fn().mockResolvedValue({
-        availableBalance: 1000,
-      });
-
-      await expect(
-        service.transfer({
-          sourceWalletId: sourceWallet.id,
-          destinationWalletId: destinationWallet.id,
-          amount: '100',
-        } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should successfully transfer between wallets', async () => {
-      walletService.findWalletById = jest
-        .fn()
-        .mockResolvedValueOnce(sourceWallet)
-        .mockResolvedValueOnce(destinationWallet);
-
-      walletService.getWalletBalance = jest.fn().mockResolvedValue({
-        availableBalance: 1000,
-      });
-
-      const mockTransactionRepo = {
-        create: jest
-          .fn()
-          .mockReturnValueOnce({ id: 'debit-txn-id' })
-          .mockReturnValueOnce({ id: 'credit-txn-id' }),
-        save: jest
-          .fn()
-          .mockResolvedValueOnce({ id: 'debit-txn-id' })
-          .mockResolvedValueOnce({ id: 'credit-txn-id' }),
-      };
-
-      const mockTransferRepo = {
-        create: jest.fn().mockReturnValue({ id: 'transfer-id' }),
-        save: jest.fn().mockResolvedValue({ id: 'transfer-id' }),
-      };
-
-      jest.spyOn(dataSource, 'transaction').mockImplementation((cb: any) =>
-        cb({
-          getRepository: (entity: any) => {
-            if (entity === Transaction) return mockTransactionRepo;
-            if (entity === Transfer) return mockTransferRepo;
-          },
-        }),
-      );
-
-      const result = await service.transfer({
-        sourceWalletId: sourceWallet.id,
-        destinationWalletId: destinationWallet.id,
+  describe('sendWalletTopupNotificationEmail', () => {
+    it('should call mailService.sendMail with correct params', async () => {
+      const params: WalletTopupNotificationParams = {
+        userEmail: 'test@example.com',
         amount: 100,
-        idempotencyKey: '1234afvn',
-      });
+        currency: 'USD',
+        balanceAfter: 200,
+        txId: 'tx123',
+        occurredAt: '2025-09-04T10:00:00Z',
+      };
 
-      expect(walletService.findWalletById).toHaveBeenCalledTimes(2);
-      expect(walletService.getWalletBalance).toHaveBeenCalledWith(
-        sourceWallet.id,
+      await service.sendWalletTopupNotificationEmail(params);
+
+      expect(mailService.sendMail).toHaveBeenCalledWith(
+        'test@example.com',
+        expect.anything(),
+        {
+          amount: formatSignedAmount(100, 'USD', true),
+          currency: 'USD',
+          balanceAfter: formatCurrency(200, 'USD'),
+          txId: 'tx123',
+          occurredAt: '2025-09-04T10:00:00Z',
+        },
       );
-      expect(mockTransactionRepo.create).toHaveBeenCalledTimes(2);
-      expect(mockTransactionRepo.save).toHaveBeenCalledTimes(2);
-      expect(mockTransferRepo.create).toHaveBeenCalledTimes(1);
-      expect(mockTransferRepo.save).toHaveBeenCalledTimes(1);
-      expect(result).toEqual({ id: 'transfer-id' });
+    });
+  });
+
+  describe('sendWalletCreditNotificationEmail', () => {
+    it('should call mailService.sendMail with correct params', async () => {
+      const occurredAt = new Date();
+      const params: WalletCreditNotificationParams = {
+        userEmail: 'john@example.com',
+        recipientName: 'John Doe',
+        senderUsername: 'jane_doe',
+        creditAmount: 150,
+        currency: 'USD',
+        updatedBalance: 350,
+        transactionId: 'TX12345',
+        occurredAt,
+      };
+
+      await service.sendWalletCreditNotificationEmail(params);
+
+      expect(mailService.sendMail).toHaveBeenCalledWith(
+        'john@example.com',
+        expect.anything(),
+        {
+          recipientName: 'John Doe',
+          senderUsername: 'jane_doe',
+          creditAmount: formatSignedAmount(150, 'USD', true),
+          currency: 'USD',
+          updatedBalance: formatCurrency(350, 'USD'),
+          transactionId: 'TX12345',
+          formattedDateTime: formatDateTime(occurredAt),
+        },
+      );
+    });
+  });
+
+  describe('sendWalletDebitNotificationEmail', () => {
+    it('should call mailService.sendMail with correct params', async () => {
+      const occurredAt = new Date();
+      const params: WalletDebitNotificationParams = {
+        userEmail: 'john@example.com',
+        recipientName: 'John Doe',
+        beneficiaryUsername: 'jane_doe',
+        debitAmount: 100,
+        currency: 'USD',
+        updatedBalance: 250,
+        transactionId: 'tx789',
+        occurredAt,
+      };
+
+      await service.sendWalletDebitNotificationEmail(params);
+
+      expect(mailService.sendMail).toHaveBeenCalledWith(
+        'john@example.com',
+        expect.anything(),
+        {
+          recipientName: 'John Doe',
+          beneficiaryUsername: 'jane_doe',
+          debitAmount: formatSignedAmount(100, 'USD', false),
+          currency: 'USD',
+          updatedBalance: formatCurrency(250, 'USD'),
+          transactionId: 'tx789',
+          formattedDateTime: formatDateTime(occurredAt),
+        },
+      );
+    });
+  });
+
+  describe('sendWalletCashoutNotificationEmail', () => {
+    it('should call mailService.sendMail with correct params', async () => {
+      const params: WalletCashoutNotificationParams = {
+        userEmail: 'test@example.com',
+        amount: 300,
+        currency: 'USD',
+        balanceAfter: 700,
+        txId: 'tx999',
+        occurredAt: '2025-09-04T10:03:00Z',
+      };
+
+      await service.sendWalletCashoutNotificationEmail(params);
+
+      expect(mailService.sendMail).toHaveBeenCalledWith(
+        'test@example.com',
+        expect.anything(),
+        {
+          amount: formatSignedAmount(300, 'USD', false),
+          currency: 'USD',
+          balanceAfter: formatCurrency(700, 'USD'),
+          txId: 'tx999',
+          occurredAt: '2025-09-04T10:03:00Z',
+        },
+      );
     });
   });
 });

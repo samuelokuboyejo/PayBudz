@@ -70,4 +70,25 @@ export class TransactionService {
     transaction.updatedAt = new Date();
     return this.transactionRepository.save(transaction);
   }
+
+  async findTransactions(
+    walletId: string,
+    status?: string,
+    currency?: string,
+    sort: 'ASC' | 'DESC' = 'DESC',
+    page = 1,
+    limit = 20,
+  ): Promise<Transaction[]> {
+    const where: any = { walletId };
+
+    if (status) where.status = status;
+    if (currency) where.currency = currency;
+
+    return this.transactionRepository.find({
+      where,
+      order: { createdAt: sort },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+  }
 }

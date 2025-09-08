@@ -8,12 +8,16 @@ import { ConfigService } from '@nestjs/config';
 import { of } from 'rxjs';
 import { DataSource } from 'typeorm';
 import { UnauthorizedException } from '@nestjs/common';
+import { NotificationService } from 'src/services/notification.service';
+import { UserService } from 'src/services/user.service';
 
 describe('AuthService', () => {
   let authService: AuthService;
   let firebaseService: FirebaseService;
   let jwtService: JwtService;
   let walletService: WalletService;
+  let notificationService: jest.Mocked<NotificationService>;
+  let userService: jest.Mocked<UserService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -63,6 +67,21 @@ describe('AuthService', () => {
             ),
           },
         },
+        {
+          provide: NotificationService,
+          useValue: {
+            sendWelcomeEmail: jest.fn(),
+            sendNotification: jest.fn(),
+            sendWalletDebitNotificationEmail: jest.fn(),
+          },
+        },
+        {
+          provide: UserService,
+          useValue: {
+            findUserById: jest.fn(),
+            createUser: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -70,6 +89,7 @@ describe('AuthService', () => {
     firebaseService = module.get<FirebaseService>(FirebaseService);
     jwtService = module.get<JwtService>(JwtService);
     walletService = module.get<WalletService>(WalletService);
+    notificationService = module.get(NotificationService);
   });
 
   it('should sign up a user with Firebase and return access and refresh tokens', async () => {
@@ -86,6 +106,10 @@ describe('AuthService', () => {
       accessToken: 'signed-token',
       refreshToken: 'signed-token',
     });
+    expect(notificationService.sendWelcomeEmail).toHaveBeenCalledWith(
+      'test@gmail.com',
+      'Eric',
+    );
   });
 
   it('should throw UnauthorizedException if token has no email address', async () => {

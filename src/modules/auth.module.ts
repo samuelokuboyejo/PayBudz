@@ -8,6 +8,7 @@ import { WalletModule } from 'src/modules/wallet.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from 'src/controllers/auth.controller';
 import { AuthService } from 'src/services/auth.service';
+import { NotificationModule } from './notification.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AuthService } from 'src/services/auth.service';
     FirebaseModule,
     WalletModule,
     HttpModule,
+    NotificationModule,
   ],
   providers: [AuthService],
   controllers: [AuthController],

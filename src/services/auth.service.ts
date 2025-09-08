@@ -12,6 +12,7 @@ import { User } from 'src/entities/user.entity';
 import { DataSource } from 'typeorm';
 import { DecodedToken } from 'src/interfaces/decoded-token.interface';
 import { AuthJwtPayload } from 'src/auth/types/auth-jwtPayload';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +25,7 @@ export class AuthService {
     private configService: ConfigService,
     private dataSource: DataSource,
     private walletService: WalletService,
+    private notificationService: NotificationService,
   ) {}
 
   async signUp(idToken: string): Promise<AuthResponse> {
@@ -32,7 +34,26 @@ export class AuthService {
     if (!decodedToken.email) {
       throw new UnauthorizedException('Email not found in token');
     }
+
     const user = await this.signUpWithProvider(decodedToken);
+
+    try {
+      const emailResult = await this.notificationService.sendWelcomeEmail(
+        user.email,
+        user.firstName,
+      );
+      this.logger.log(
+        `Welcome email sent to ${user.email}. Result: ${JSON.stringify(
+          emailResult,
+        )}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to send welcome email to ${user.email}: ${err.message}`,
+        err.stack,
+      );
+    }
+
     return this.generateTokens(user.id, user.email);
   }
 

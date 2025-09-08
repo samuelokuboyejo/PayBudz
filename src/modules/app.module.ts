@@ -14,6 +14,8 @@ import { FirebaseAuthGuard } from 'src/auth/guards/auth.guard';
 import { AppController } from 'src/controllers/app.controller';
 import { User } from 'src/entities/user.entity';
 import { AuthModule } from 'src/modules/auth.module';
+import { MailModule } from './mail.module';
+import { NotificationModule } from './notification.module';
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { AuthModule } from 'src/modules/auth.module';
     TransferModule,
     UserModule,
     AuthModule,
+    MailModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService, FirebaseAuthGuard],

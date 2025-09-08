@@ -13,6 +13,7 @@ import { WalletService } from '../../src/services/wallet.service';
 const mockTransactionRepository = () => ({
   create: jest.fn(),
   save: jest.fn(),
+  find: jest.fn(),
   findOne: jest.fn(),
 });
 
@@ -20,28 +21,25 @@ const mockDataSource = () => ({
   query: jest.fn(),
 });
 
-const mockManager = {
-  create: jest.fn(),
-  save: jest.fn(),
-  transaction: jest.fn(),
-};
-
-const sourceWallet = {
-  id: 'source-id',
-  currency: 'USD',
-  isActive: true,
-};
-
-const destinationWallet = {
-  id: 'dest-id',
-  currency: 'USD',
-  isActive: true,
-};
+const mockTransactions = [
+  {
+    id: '1',
+    walletId: 'wallet123',
+    amount: 100,
+    createdAt: new Date('2025-09-06'),
+  },
+  {
+    id: '2',
+    walletId: 'wallet123',
+    amount: 50,
+    createdAt: new Date('2025-09-07'),
+  },
+] as Transaction[];
 
 describe('TransactionService', () => {
   let service: TransactionService;
   let transactionRepository: jest.Mocked<Repository<Transaction>>;
-  let dataSource: { query: jest.Mock };
+  let dataSource: jest.Mocked<DataSource>;
   let walletService: jest.Mocked<Partial<WalletService>>;
 
   beforeEach(async () => {
@@ -63,8 +61,10 @@ describe('TransactionService', () => {
     }).compile();
 
     service = module.get<TransactionService>(TransactionService);
-    transactionRepository = module.get(getRepositoryToken(Transaction));
-    dataSource = module.get(DataSource);
+    transactionRepository = module.get(
+      getRepositoryToken(Transaction),
+    ) as jest.Mocked<Repository<Transaction>>;
+    dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
   });
 
   describe('createTransaction', () => {
@@ -102,7 +102,6 @@ describe('TransactionService', () => {
         type: transactionType,
         status: TransactionStatus.PENDING,
       });
-
       expect(transactionRepository.save).toHaveBeenCalledWith(mockTransaction);
       expect(result).toEqual(mockTransaction);
     });
@@ -120,10 +119,9 @@ describe('TransactionService', () => {
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
-      transactionRepository.findOne.mockResolvedValue(
-        transaction as Transaction,
-      );
+      } as Transaction;
+
+      transactionRepository.findOne.mockResolvedValue(transaction);
 
       const result = await service.findById('abc');
 
@@ -159,23 +157,22 @@ describe('TransactionService', () => {
 
       service.findById = jest.fn().mockResolvedValue(mockTransaction);
       const newStatus = TransactionStatus.SUCCESSFUL;
-      const tx = { ...mockTransaction, status: TransactionStatus.PENDING };
 
-      (transactionRepository.save as jest.Mock).mockResolvedValue({
-        ...tx,
+      transactionRepository.save.mockResolvedValue({
+        ...mockTransaction,
         status: newStatus,
       });
 
-      const result = await service.updateTransactionStatus(tx.id, newStatus);
+      const result = await service.updateTransactionStatus(
+        mockTransaction.id,
+        newStatus,
+      );
 
       expect(service.findById).toHaveBeenCalledWith(mockTransaction.id);
-      expect(result.status).toBe(newStatus);
       expect(transactionRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: tx.id,
-          status: newStatus,
-        }),
+        expect.objectContaining({ id: mockTransaction.id, status: newStatus }),
       );
+      expect(result.status).toBe(newStatus);
     });
 
     it('should throw InvalidTransactionStatusTransitionException if transition is invalid', async () => {
@@ -198,5 +195,46 @@ describe('TransactionService', () => {
         ),
       ).rejects.toThrow(InvalidTransactionStatusTransitionException);
     });
+  });
+
+  it('should return transactions with default parameters', async () => {
+    const mockTransactions = [
+      { id: '1', amount: 100, walletId: 'wallet1' },
+      { id: '2', amount: 50, walletId: 'wallet1' },
+    ];
+
+    transactionRepository.find.mockResolvedValue(mockTransactions as any);
+
+    const result = await service.findTransactions('wallet1');
+
+    expect(transactionRepository.find).toHaveBeenCalledWith({
+      where: { walletId: 'wallet1' },
+      order: { createdAt: 'DESC' },
+      skip: 0,
+      take: 20,
+    });
+    expect(result).toEqual(mockTransactions);
+  });
+
+  it('should apply status, currency, page, limit, and sort correctly', async () => {
+    const mockTransactions = [{ id: '3', amount: 200, walletId: 'wallet2' }];
+    transactionRepository.find.mockResolvedValue(mockTransactions as any);
+
+    const result = await service.findTransactions(
+      'wallet2',
+      'completed',
+      'USD',
+      'ASC',
+      2,
+      10,
+    );
+
+    expect(transactionRepository.find).toHaveBeenCalledWith({
+      where: { walletId: 'wallet2', status: 'completed', currency: 'USD' },
+      order: { createdAt: 'ASC' },
+      skip: 10,
+      take: 10,
+    });
+    expect(result).toEqual(mockTransactions);
   });
 });

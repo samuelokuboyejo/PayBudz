@@ -23,7 +23,7 @@ export class User {
 
   @IsAlphanumeric()
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 20, unique: true, nullable: false })
+  @Column({ type: 'varchar', length: 30, unique: true, nullable: false })
   username: string;
 
   @Index({ unique: true })
