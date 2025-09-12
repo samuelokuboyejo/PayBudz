@@ -13,6 +13,7 @@ import { DataSource } from 'typeorm';
 import { DecodedToken } from 'src/interfaces/decoded-token.interface';
 import { AuthJwtPayload } from 'src/auth/types/auth-jwtPayload';
 import { NotificationService } from './notification.service';
+import { SlackNotificationService } from './slack-notification.service';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +27,7 @@ export class AuthService {
     private dataSource: DataSource,
     private walletService: WalletService,
     private notificationService: NotificationService,
+    private slackNotificationService: SlackNotificationService,
   ) {}
 
   async signUp(idToken: string): Promise<AuthResponse> {
@@ -50,6 +52,17 @@ export class AuthService {
     } catch (err) {
       this.logger.error(
         `Failed to send welcome email to ${user.email}: ${err.message}`,
+        err.stack,
+      );
+    }
+    try {
+      await this.slackNotificationService.sendMessage(
+        'New User Signed Up',
+        `Name: ${user.firstName} ${user.lastName}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to send Slack notification for user ${user.id}: ${err.message}`,
         err.stack,
       );
     }

@@ -9,6 +9,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from 'src/controllers/auth.controller';
 import { AuthService } from 'src/services/auth.service';
 import { NotificationModule } from './notification.module';
+import { SlackNotificationModule } from './slack-notification.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { NotificationModule } from './notification.module';
     WalletModule,
     HttpModule,
     NotificationModule,
+    SlackNotificationModule,
   ],
   providers: [AuthService],
   controllers: [AuthController],

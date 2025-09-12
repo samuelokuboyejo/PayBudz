@@ -10,6 +10,7 @@ import { DataSource } from 'typeorm';
 import { UnauthorizedException } from '@nestjs/common';
 import { NotificationService } from 'src/services/notification.service';
 import { UserService } from 'src/services/user.service';
+import { SlackNotificationService } from 'src/services/slack-notification.service';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -18,6 +19,7 @@ describe('AuthService', () => {
   let walletService: WalletService;
   let notificationService: jest.Mocked<NotificationService>;
   let userService: jest.Mocked<UserService>;
+  let slackNotificationService: jest.Mocked<SlackNotificationService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -82,6 +84,12 @@ describe('AuthService', () => {
             createUser: jest.fn(),
           },
         },
+        {
+          provide: SlackNotificationService,
+          useValue: {
+            sendMessage: jest.fn().mockResolvedValue(true),
+          },
+        },
       ],
     }).compile();
 
@@ -90,6 +98,7 @@ describe('AuthService', () => {
     jwtService = module.get<JwtService>(JwtService);
     walletService = module.get<WalletService>(WalletService);
     notificationService = module.get(NotificationService);
+    slackNotificationService = module.get(SlackNotificationService);
   });
 
   it('should sign up a user with Firebase and return access and refresh tokens', async () => {
@@ -109,6 +118,10 @@ describe('AuthService', () => {
     expect(notificationService.sendWelcomeEmail).toHaveBeenCalledWith(
       'test@gmail.com',
       'Eric',
+    );
+    expect(slackNotificationService.sendMessage).toHaveBeenCalledWith(
+      'New User Signed Up',
+      expect.stringContaining('Eric'),
     );
   });
 

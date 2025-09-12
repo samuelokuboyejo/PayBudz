@@ -16,6 +16,7 @@ import { User } from 'src/entities/user.entity';
 import { AuthModule } from 'src/modules/auth.module';
 import { MailModule } from './mail.module';
 import { NotificationModule } from './notification.module';
+import { SlackNotificationModule } from './slack-notification.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { NotificationModule } from './notification.module';
     AuthModule,
     MailModule,
     NotificationModule,
+    SlackNotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService, FirebaseAuthGuard],
