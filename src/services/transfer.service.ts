@@ -16,6 +16,7 @@ import { TransactionStatus } from 'src/enums/transaction-status.enum';
 import Decimal from 'decimal.js';
 import { NotificationService } from './notification.service';
 import { UserService } from './user.service';
+import { SlackNotificationService } from './slack-notification.service';
 
 @Injectable()
 export class TransferService {
@@ -29,6 +30,7 @@ export class TransferService {
     private walletService: WalletService,
     private notificationService: NotificationService,
     private userService: UserService,
+    private slackNotificationService: SlackNotificationService,
   ) {}
 
   async findTransferById(id: string): Promise<Transfer> {

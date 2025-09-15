@@ -45,4 +45,30 @@ export class SlackNotificationService {
       return false;
     }
   }
+
+  async sendUserSignupNotification(user: {
+    firstName: string;
+    lastName: string;
+    id: string;
+  }): Promise<boolean> {
+    const rawEnv = this.configService.get<string>('NODE_ENV');
+
+    const environment =
+      rawEnv.toLowerCase() === 'development'
+        ? 'DEV'
+        : rawEnv.toLowerCase() === 'production'
+        ? 'PROD'
+        : rawEnv.toUpperCase();
+
+    const timestamp = new Date().toUTCString();
+
+    const details =
+      `• *Name:* \`${user.firstName} ${user.lastName}\`\n` +
+      `• *Environment:* \`${environment}\`\n` +
+      `• *Timestamp:* \`${timestamp}\``;
+
+    const title = ':tada: New User Signed Up';
+
+    return this.sendMessage(title, details);
+  }
 }

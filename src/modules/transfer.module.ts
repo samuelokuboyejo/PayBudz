@@ -9,12 +9,14 @@ import { TransferService } from 'src/services/transfer.service';
 import { WalletService } from 'src/services/wallet.service';
 import { UserModule } from './user.module';
 import { NotificationModule } from './notification.module';
+import { SlackNotificationModule } from './slack-notification.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Transfer, Transaction, Wallet]),
     UserModule,
     NotificationModule,
+    SlackNotificationModule,
   ],
   controllers: [TransferController],
   providers: [TransferService, TransactionService, WalletService],

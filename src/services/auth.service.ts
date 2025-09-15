@@ -56,10 +56,7 @@ export class AuthService {
       );
     }
     try {
-      await this.slackNotificationService.sendMessage(
-        'New User Signed Up',
-        `Name: ${user.firstName} ${user.lastName}`,
-      );
+      await this.slackNotificationService.sendUserSignupNotification(user);
     } catch (err) {
       this.logger.error(
         `Failed to send Slack notification for user ${user.id}: ${err.message}`,

@@ -87,7 +87,7 @@ describe('AuthService', () => {
         {
           provide: SlackNotificationService,
           useValue: {
-            sendMessage: jest.fn().mockResolvedValue(true),
+            sendUserSignupNotification: jest.fn().mockResolvedValue(true),
           },
         },
       ],
@@ -110,6 +110,13 @@ describe('AuthService', () => {
       firebase: { sign_in_provider: 'google.com' },
     });
 
+    jest.spyOn(authService as any, 'signUpWithProvider').mockResolvedValue({
+      id: '123',
+      email: 'test@gmail.com',
+      firstName: 'Eric',
+      lastName: 'George',
+    });
+
     const result = await authService.signUp('mock-id-token');
     expect(result).toEqual({
       accessToken: 'signed-token',
@@ -119,10 +126,14 @@ describe('AuthService', () => {
       'test@gmail.com',
       'Eric',
     );
-    expect(slackNotificationService.sendMessage).toHaveBeenCalledWith(
-      'New User Signed Up',
-      expect.stringContaining('Eric'),
-    );
+    expect(
+      slackNotificationService.sendUserSignupNotification,
+    ).toHaveBeenCalledWith({
+      id: '123',
+      email: 'test@gmail.com',
+      firstName: 'Eric',
+      lastName: 'George',
+    });
   });
 
   it('should throw UnauthorizedException if token has no email address', async () => {

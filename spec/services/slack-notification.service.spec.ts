@@ -91,4 +91,20 @@ describe('SlackNotificationService', () => {
     const result = await service.sendMessage('Test Title', 'Test Details');
     expect(result).toBe(false);
   });
+
+  it('should send a user signup notification', async () => {
+    postMock.mockResolvedValueOnce({ status: 200 });
+
+    const user = { firstName: 'Eric', lastName: 'Max', id: '123' };
+    const result = await service.sendUserSignupNotification(user);
+
+    expect(postMock).toHaveBeenCalledTimes(1);
+    const payload = postMock.mock.calls[0][1];
+
+    expect(payload.text).toContain(':tada: New User Signed Up');
+    expect(payload.text).toContain('Eric Max');
+    expect(payload.text).toContain('Environment');
+    expect(payload.text).toContain('Timestamp');
+    expect(result).toBe(true);
+  });
 });
