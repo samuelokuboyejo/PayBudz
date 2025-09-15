@@ -71,4 +71,60 @@ export class SlackNotificationService {
 
     return this.sendMessage(title, details);
   }
+
+  async sendTransactionSuccess(params: {
+    type: 'TRANSFER' | 'CASHOUT' | 'TOPUP';
+    amount: number;
+    currency: string;
+    reference: string;
+    sender?: string;
+    recipient?: string;
+  }): Promise<boolean> {
+    const environment = this.configService
+      .get<string>('NODE_ENV')
+      ?.toUpperCase();
+    const timestamp = new Date().toUTCString();
+
+    const details =
+      `• *Type:* \`${params.type}\`\n` +
+      (params.sender ? `• *From:* \`${params.sender}\`\n` : '') +
+      (params.recipient ? `• *To:* \`${params.recipient}\`\n` : '') +
+      `• *Amount:* \`${params.amount} ${params.currency}\`\n` +
+      `• *Reference:* \`${params.reference}\`\n` +
+      `• *Environment:* \`${environment}\`\n` +
+      `• *Timestamp:* \`${timestamp}\``;
+
+    const title = ':white_check_mark: Transaction Successful';
+
+    return this.sendMessage(title, details);
+  }
+
+  async sendTransactionFailure(params: {
+    type: 'TRANSFER' | 'CASHOUT' | 'TOPUP';
+    amount: number;
+    currency: string;
+    reference: string;
+    reason: string;
+    sender?: string;
+    recipient?: string;
+  }): Promise<boolean> {
+    const environment = this.configService
+      .get<string>('NODE_ENV')
+      ?.toUpperCase();
+    const timestamp = new Date().toUTCString();
+
+    const details =
+      `• *Type:* \`${params.type}\`\n` +
+      (params.sender ? `• *From:* \`${params.sender}\`\n` : '') +
+      (params.recipient ? `• *To:* \`${params.recipient}\`\n` : '') +
+      `• *Amount:* \`${params.amount} ${params.currency}\`\n` +
+      `• *Reference:* \`${params.reference}\`\n` +
+      `• *Reason:* \`${params.reason}\`\n` +
+      `• *Environment:* \`${environment}\`\n` +
+      `• *Timestamp:* \`${timestamp}\``;
+
+    const title = ':x: Transaction Failed';
+
+    return this.sendMessage(title, details);
+  }
 }

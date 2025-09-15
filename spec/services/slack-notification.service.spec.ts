@@ -107,4 +107,47 @@ describe('SlackNotificationService', () => {
     expect(payload.text).toContain('Timestamp');
     expect(result).toBe(true);
   });
+
+  it('should send a transaction success notification', async () => {
+    const params = {
+      type: 'TRANSFER' as const,
+      amount: 100,
+      currency: 'USD',
+      reference: 'REF123',
+      sender: 'Eric',
+      recipient: 'Timi',
+    };
+
+    jest.spyOn(service, 'sendMessage').mockResolvedValue(true);
+    const result = await service.sendTransactionSuccess(params);
+
+    expect(service.sendMessage).toHaveBeenCalledWith(
+      ':white_check_mark: Transaction Successful',
+      expect.stringContaining('• *Type:* `TRANSFER`'),
+    );
+    expect(result).toBe(true);
+  });
+
+  it('should send transaction failure notification', async () => {
+    postMock.mockResolvedValueOnce({ status: 200 });
+
+    const params = {
+      type: 'CASHOUT' as const,
+      amount: 250,
+      currency: 'NGN',
+      reference: 'ref-456',
+      reason: 'Insufficient funds',
+      sender: 'Charlie',
+    };
+
+    const result = await service.sendTransactionFailure(params);
+
+    expect(result).toBe(true);
+    expect(postMock).toHaveBeenCalledWith('', {
+      text: expect.stringContaining(':x: Transaction Failed'),
+    });
+    expect(postMock).toHaveBeenCalledWith('', {
+      text: expect.stringContaining('• *Reason:* `Insufficient funds`'),
+    });
+  });
 });

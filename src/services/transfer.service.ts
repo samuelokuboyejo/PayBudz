@@ -151,6 +151,15 @@ export class TransferService {
       await transferRepo.save(transfer);
     });
 
+    await this.slackNotificationService.sendTransactionSuccess({
+      type: 'TRANSFER',
+      amount: dto.amount,
+      currency: sourceWallet.currency,
+      sender: sourceUser.username,
+      recipient: destinationUser.username,
+      reference: transfer.id,
+    });
+
     try {
       const balanceAfterDebit = await this.walletService.getWalletBalance(
         sourceWallet.id,
