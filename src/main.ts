@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './modules/app.module';
+import { DataSource } from 'typeorm';
+import { CustomMigrationService } from './migrations/custom.migrations';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,6 +13,12 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 3001;
+
+  const dataSource = app.get(DataSource);
+  await dataSource.runMigrations();
+  const customMigrationService = app.get(CustomMigrationService);
+  await customMigrationService.runMigrations();
+
 
   // Global validation pipe
   app.useGlobalPipes(

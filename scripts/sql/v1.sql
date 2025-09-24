@@ -7,8 +7,6 @@ CREATE TABLE IF NOT EXISTS wallets (
   updated_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TYPE transaction_status AS ENUM ('PENDING','SUCCESSFUL','FAILED');
-
 CREATE TYPE transaction_type AS ENUM ('CREDIT', 'DEBIT');
 
 CREATE TABLE IF NOT EXISTS transactions (

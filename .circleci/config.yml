@@ -15,13 +15,6 @@ jobs:
       - run:
           name: Run unit tests
           command: npm test
-      - slack/notify:
-          event: fail
-          template: basic_fail_1
-      - slack/notify:
-          event: pass
-          template: basic_success_1
-
   deploy-staging:
     docker:
       - image: cimg/node:20.10

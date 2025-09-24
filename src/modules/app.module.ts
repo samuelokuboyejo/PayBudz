@@ -17,6 +17,7 @@ import { AuthModule } from 'src/modules/auth.module';
 import { MailModule } from './mail.module';
 import { NotificationModule } from './notification.module';
 import { SlackNotificationModule } from './slack-notification.module';
+import { CustomMigrationService } from 'src/migrations/custom.migrations';
 
 @Module({
   imports: [
@@ -53,6 +54,6 @@ import { SlackNotificationModule } from './slack-notification.module';
     SlackNotificationModule,
   ],
   controllers: [AppController],
-  providers: [AppService, FirebaseAuthGuard],
+  providers: [AppService, CustomMigrationService, FirebaseAuthGuard],
 })
 export class AppModule {}
