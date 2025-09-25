@@ -4,7 +4,7 @@ export type WalletTopupNotificationParams = {
   currency: string;
   balanceAfter: number;
   txId: string;
-  occurredAt: string;
+  occurredAt: Date;
 };
 
 export type WalletCreditNotificationParams = {

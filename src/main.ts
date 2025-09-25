@@ -19,7 +19,6 @@ async function bootstrap() {
   const customMigrationService = app.get(CustomMigrationService);
   await customMigrationService.runMigrations();
 
-
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({

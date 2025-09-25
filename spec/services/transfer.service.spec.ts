@@ -1,151 +1,164 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotificationService } from 'src/services/notification.service';
-import { MailService } from 'src/services/mail.service';
-import { formatCurrency, formatSignedAmount } from 'src/utils/currency.util';
-import { formatDateTime } from 'src/utils/date.util';
-import {
-  WalletTopupNotificationParams,
-  WalletCreditNotificationParams,
-  WalletDebitNotificationParams,
-  WalletCashoutNotificationParams,
-} from 'src/utils/notification-types';
+import { TransferService } from '../../src/services/transfer.service';
+import { WalletService } from '../../src/services/wallet.service';
+import { NotificationService } from '../../src/services/notification.service';
+import { UserService } from '../../src/services/user.service';
+import { SlackNotificationService } from '../../src/services/slack-notification.service';
+import { Repository, DataSource } from 'typeorm';
+import { Transfer } from '../../src/entities/transfer.entity';
+import { TransferDto } from 'src/dto/transfer.dto';
+import { SupportedCurrencies } from 'src/enums/currency.enum';
 
-describe('NotificationService', () => {
-  let service: NotificationService;
-  let mailService: MailService;
+describe('TransferService', () => {
+  let service: TransferService;
+  let userService: jest.Mocked<UserService>;
+  let walletService: jest.Mocked<WalletService>;
+  let notificationService: jest.Mocked<NotificationService>;
+  let slackService: jest.Mocked<SlackNotificationService>;
+  let transferRepo: jest.Mocked<Repository<Transfer>>;
+  let dataSource: jest.Mocked<DataSource>;
 
   beforeEach(async () => {
+    const mockTransferRepo = { create: jest.fn(), save: jest.fn() } as any;
+    const mockDataSource = {
+      transaction: jest
+        .fn()
+        .mockImplementation(async (cb) =>
+          cb({ getRepository: () => mockTransferRepo }),
+        ),
+    } as any;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        NotificationService,
+        TransferService,
         {
-          provide: MailService,
+          provide: UserService,
+          useValue: { findById: jest.fn(), findByUsername: jest.fn() },
+        },
+        {
+          provide: WalletService,
+          useValue: { findWalletById: jest.fn(), getWalletBalance: jest.fn() },
+        },
+        {
+          provide: NotificationService,
           useValue: {
-            sendMail: jest.fn().mockResolvedValue(undefined),
+            sendWalletDebitNotificationEmail: jest.fn(),
+            sendWalletCreditNotificationEmail: jest.fn(),
           },
         },
+        {
+          provide: SlackNotificationService,
+          useValue: { sendTransactionSuccess: jest.fn() },
+        },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: 'TransferRepository', useValue: mockTransferRepo },
       ],
     }).compile();
 
-    service = module.get<NotificationService>(NotificationService);
-    mailService = module.get(MailService);
+    service = module.get(TransferService);
+    userService = module.get(UserService) as jest.Mocked<UserService>;
+    walletService = module.get(WalletService) as jest.Mocked<WalletService>;
+    notificationService = module.get(
+      NotificationService,
+    ) as jest.Mocked<NotificationService>;
+    slackService = module.get(
+      SlackNotificationService,
+    ) as jest.Mocked<SlackNotificationService>;
+    transferRepo = module.get('TransferRepository') as jest.Mocked<
+      Repository<Transfer>
+    >;
+    dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
   });
 
-  describe('sendWalletTopupNotificationEmail', () => {
-    it('should call mailService.sendMail with correct params', async () => {
-      const params: WalletTopupNotificationParams = {
-        userEmail: 'test@example.com',
-        amount: 100,
-        currency: 'USD',
-        balanceAfter: 200,
-        txId: 'tx123',
-        occurredAt: '2025-09-04T10:00:00Z',
-      };
+  it('should perform a transfer successfully', async () => {
+    const sourceUser = {
+      id: 'user1',
+      username: 'sammy@gmail.com',
+      email: 'sammy@gmail.com',
+      firstName: 'Sam',
+      lastName: 'Max',
+      dateOfBirth: null,
+      isVerified: true,
+      authProvider: {},
+      firebaseUid: 'firebase-uid-1',
+      wallets: { USD: 'wallet1' },
+      walletTopUpIntents: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-      await service.sendWalletTopupNotificationEmail(params);
+    const destinationUser = {
+      id: 'user2',
+      username: 'femi@gmail.com',
+      email: 'femi@gmail.com',
+      firstName: 'Femi',
+      lastName: 'Dom',
+      dateOfBirth: null,
+      isVerified: true,
+      authProvider: {},
+      firebaseUid: 'firebase-uid-2',
+      wallets: { USD: 'wallet2' },
+      walletTopUpIntents: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-      expect(mailService.sendMail).toHaveBeenCalledWith(
-        'test@example.com',
-        expect.anything(),
-        {
-          amount: formatSignedAmount(100, 'USD', true),
-          currency: 'USD',
-          balanceAfter: formatCurrency(200, 'USD'),
-          txId: 'tx123',
-          occurredAt: '2025-09-04T10:00:00Z',
-        },
-      );
-    });
-  });
+    const sourceWallet = {
+      id: 'wallet1',
+      currency: SupportedCurrencies.USD,
+      isActive: true,
+    };
+    const destinationWallet = {
+      id: 'wallet2',
+      currency: SupportedCurrencies.USD,
+      isActive: true,
+    };
 
-  describe('sendWalletCreditNotificationEmail', () => {
-    it('should call mailService.sendMail with correct params', async () => {
-      const occurredAt = new Date();
-      const params: WalletCreditNotificationParams = {
-        userEmail: 'john@example.com',
-        recipientName: 'John Doe',
-        senderUsername: 'jane_doe',
-        creditAmount: 150,
-        currency: 'USD',
-        updatedBalance: 350,
-        transactionId: 'TX12345',
-        occurredAt,
-      };
+    const dto: TransferDto = {
+      amount: 100,
+      currency: SupportedCurrencies.USD,
+      destinationUsername: 'jane_doe',
+      idempotencyKey: 'key123',
+    };
 
-      await service.sendWalletCreditNotificationEmail(params);
+    userService.findById.mockResolvedValue(sourceUser as any);
+    userService.findByUsername.mockResolvedValue(destinationUser as any);
+    walletService.findWalletById.mockResolvedValueOnce(sourceWallet as any);
+    walletService.findWalletById.mockResolvedValueOnce(
+      destinationWallet as any,
+    );
+    walletService.getWalletBalance.mockResolvedValue({
+      availableBalance: 500,
+    } as any);
 
-      expect(mailService.sendMail).toHaveBeenCalledWith(
-        'john@example.com',
-        expect.anything(),
-        {
-          recipientName: 'John Doe',
-          senderUsername: 'jane_doe',
-          creditAmount: formatSignedAmount(150, 'USD', true),
-          currency: 'USD',
-          updatedBalance: formatCurrency(350, 'USD'),
-          transactionId: 'TX12345',
-          formattedDateTime: formatDateTime(occurredAt),
-        },
-      );
-    });
-  });
+    transferRepo.create.mockImplementation(
+      (t) =>
+        ({
+          id: 'transfer1',
+          fromWalletId: 'wallet1',
+          toWalletId: 'wallet2',
+          amount: 100,
+          currencyCode: SupportedCurrencies.USD,
+          idempotencyKey: 'key123',
+          createdAt: new Date(),
+          debitTransactionId: 'debit1',
+          creditTransactionId: 'credit1',
+        } as Transfer),
+    );
 
-  describe('sendWalletDebitNotificationEmail', () => {
-    it('should call mailService.sendMail with correct params', async () => {
-      const occurredAt = new Date();
-      const params: WalletDebitNotificationParams = {
-        userEmail: 'john@example.com',
-        recipientName: 'John Doe',
-        beneficiaryUsername: 'jane_doe',
-        debitAmount: 100,
-        currency: 'USD',
-        updatedBalance: 250,
-        transactionId: 'tx789',
-        occurredAt,
-      };
+    transferRepo.save.mockImplementation(async (t) => t as Transfer);
 
-      await service.sendWalletDebitNotificationEmail(params);
+    const result = await service.transfer(sourceUser.id, dto);
 
-      expect(mailService.sendMail).toHaveBeenCalledWith(
-        'john@example.com',
-        expect.anything(),
-        {
-          recipientName: 'John Doe',
-          beneficiaryUsername: 'jane_doe',
-          debitAmount: formatSignedAmount(100, 'USD', false),
-          currency: 'USD',
-          updatedBalance: formatCurrency(250, 'USD'),
-          transactionId: 'tx789',
-          formattedDateTime: formatDateTime(occurredAt),
-        },
-      );
-    });
-  });
-
-  describe('sendWalletCashoutNotificationEmail', () => {
-    it('should call mailService.sendMail with correct params', async () => {
-      const params: WalletCashoutNotificationParams = {
-        userEmail: 'test@example.com',
-        amount: 300,
-        currency: 'USD',
-        balanceAfter: 700,
-        txId: 'tx999',
-        occurredAt: '2025-09-04T10:03:00Z',
-      };
-
-      await service.sendWalletCashoutNotificationEmail(params);
-
-      expect(mailService.sendMail).toHaveBeenCalledWith(
-        'test@example.com',
-        expect.anything(),
-        {
-          amount: formatSignedAmount(300, 'USD', false),
-          currency: 'USD',
-          balanceAfter: formatCurrency(700, 'USD'),
-          txId: 'tx999',
-          occurredAt: '2025-09-04T10:03:00Z',
-        },
-      );
-    });
+    expect(result.id).toBe('transfer1');
+    expect(walletService.getWalletBalance).toHaveBeenCalledWith('wallet1');
+    expect(walletService.getWalletBalance).toHaveBeenCalledWith('wallet2');
+    expect(
+      notificationService.sendWalletDebitNotificationEmail,
+    ).toHaveBeenCalled();
+    expect(
+      notificationService.sendWalletCreditNotificationEmail,
+    ).toHaveBeenCalled();
+    expect(slackService.sendTransactionSuccess).toHaveBeenCalled();
   });
 });

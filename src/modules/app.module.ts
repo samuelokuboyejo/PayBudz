@@ -18,6 +18,8 @@ import { MailModule } from './mail.module';
 import { NotificationModule } from './notification.module';
 import { SlackNotificationModule } from './slack-notification.module';
 import { CustomMigrationService } from 'src/migrations/custom.migrations';
+import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
+import { PaystackModule } from './paystack.module';
 
 @Module({
   imports: [
@@ -34,7 +36,7 @@ import { CustomMigrationService } from 'src/migrations/custom.migrations';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
-        entities: [Wallet, Transaction, Transfer, User],
+        entities: [Wallet, Transaction, Transfer, User, WalletTopUpIntent],
         synchronize: configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
         ssl:
@@ -52,6 +54,7 @@ import { CustomMigrationService } from 'src/migrations/custom.migrations';
     MailModule,
     NotificationModule,
     SlackNotificationModule,
+    PaystackModule,
   ],
   controllers: [AppController],
   providers: [AppService, CustomMigrationService, FirebaseAuthGuard],

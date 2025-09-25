@@ -18,7 +18,7 @@ export interface WalletTopupTemplateData {
   currency: string;
   balanceAfter: string;
   txId: string;
-  occurredAt: string;
+  occurredAt: Date;
 }
 
 // for example

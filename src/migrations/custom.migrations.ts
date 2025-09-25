@@ -1,7 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { DataSource } from "typeorm";
-import { readdirSync, readFileSync } from "fs";
-import { join } from "path";
+import { Injectable, Logger } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class CustomMigrationService {
@@ -20,12 +20,12 @@ export class CustomMigrationService {
     `);
 
     const applied: { name: string }[] = await this.dataSource.query(
-      `SELECT name FROM custom_migrations`
+      `SELECT name FROM custom_migrations`,
     );
-    const appliedNames = new Set(applied.map(r => r.name));
+    const appliedNames = new Set(applied.map((r) => r.name));
 
-    const migrationsDir = join(__dirname, "../../../scripts/sql/");
-    const files = readdirSync(migrationsDir).filter(f => f.endsWith(".sql"));
+    const migrationsDir = join(__dirname, '../../../scripts/sql/');
+    const files = readdirSync(migrationsDir).filter((f) => f.endsWith('.sql'));
 
     for (const file of files) {
       if (appliedNames.has(file)) {
@@ -34,16 +34,16 @@ export class CustomMigrationService {
       }
 
       this.logger.log(`Applying custom migration: ${file}`);
-      const sql = readFileSync(join(migrationsDir, file), "utf8");
+      const sql = readFileSync(join(migrationsDir, file), 'utf8');
 
       await this.dataSource.query(sql);
 
       await this.dataSource.query(
         `INSERT INTO custom_migrations(name) VALUES ($1)`,
-        [file]
+        [file],
       );
     }
 
-    this.logger.log("All custom migrations applied ✅");
+    this.logger.log('All custom migrations applied ✅');
   }
 }

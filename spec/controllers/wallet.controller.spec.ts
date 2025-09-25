@@ -4,19 +4,40 @@ import { WalletController } from '../../src/controllers/wallet.controller';
 import { WalletService } from '../../src/services/wallet.service';
 import { CreateWalletDto } from '../../src/dto/wallet.dto';
 import { WalletBalanceDto } from '../../src/dto/wallet-balance.dto';
-import { NotFoundException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  NotFoundException,
+} from '@nestjs/common';
 import { Wallet } from '../../src/entities/wallet.entity';
 import { SupportedCurrencies } from '../../src/enums/currency.enum';
+import { FirebaseAuthGuard } from 'src/auth/guards/auth.guard';
+import { PaystackService } from 'src/services/paystack.service';
+import { TopUpDto } from 'src/dto/topup.dto';
+
+class MockFirebaseAuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    return true;
+  }
+}
 
 describe('WalletController', () => {
   let controller: WalletController;
   let service: jest.Mocked<WalletService>;
+  let paystackService: jest.Mocked<PaystackService>;
 
   beforeEach(async () => {
     const mockWalletService = {
       createWallet: jest.fn(),
       findWalletById: jest.fn(),
       getWalletBalance: jest.fn(),
+      activateWallet: jest.fn(),
+      deactivateWallet: jest.fn(),
+    };
+
+    const mockPaystackService = {
+      initiateTopUp: jest.fn(),
+      handlePaystackWebhook: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -26,11 +47,18 @@ describe('WalletController', () => {
           provide: WalletService,
           useValue: mockWalletService,
         },
+        { provide: PaystackService, useValue: mockPaystackService },
       ],
-    }).compile();
+    })
+      .overrideGuard(FirebaseAuthGuard)
+      .useClass(MockFirebaseAuthGuard)
+      .compile();
 
     controller = module.get<WalletController>(WalletController);
     service = module.get(WalletService) as jest.Mocked<WalletService>;
+    paystackService = module.get(
+      PaystackService,
+    ) as jest.Mocked<PaystackService>;
   });
 
   describe('createWallet', () => {
@@ -98,4 +126,32 @@ describe('WalletController', () => {
       expect(service.getWalletBalance).toHaveBeenCalledWith('wallet-id-abc');
     });
   });
+
+  describe('initiateTopUp', () => {
+    it('should call paystackService.initiateTopUp and return the result', async () => {
+      const dto: TopUpDto = {
+        amount: 1000,
+        currency: SupportedCurrencies.NGN,
+        email: 'user@test.com',
+      };
+      const mockUser = { id: 'user-id-123', email: 'user@test.com' };
+      const mockResponse = { paymentLink: 'https://paystack.com/pay/123' };
+
+      paystackService.initiateTopUp.mockResolvedValue(mockResponse);
+
+      const req = { user: mockUser } as any;
+
+      const result = await controller.initiateTopUp(req, dto);
+
+      expect(paystackService.initiateTopUp).toHaveBeenCalledWith(
+        mockUser,
+        dto.amount,
+        dto.currency,
+        dto.email,
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+
 });

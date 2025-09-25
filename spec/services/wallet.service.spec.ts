@@ -1,13 +1,14 @@
-/* eslint-disable prettier/prettier */
 import { Test, TestingModule } from '@nestjs/testing';
 import { WalletService } from '../../src/services/wallet.service';
 import { Wallet } from '../../src/entities/wallet.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CreateWalletDto } from '../../src/dto/wallet.dto';
 import { SupportedCurrencies } from '../../src/enums/currency.enum';
 import { Transaction } from '../../src/entities/transaction.entity';
+import { NotificationService } from 'src/services/notification.service';
+import { UserService } from 'src/services/user.service';
 
 const mockWalletRepository = () => ({
   create: jest.fn(),
@@ -22,17 +23,28 @@ const mockTransactionRepository = () => ({
   find: jest.fn(),
 });
 
-const mockDataSource = () => ({
-  query: jest.fn(),
-});
-
 describe('WalletService', () => {
   let service: WalletService;
   let walletRepository: jest.Mocked<Repository<Wallet>>;
   let transactionRepository: jest.Mocked<Repository<Transaction>>;
-  let dataSource: { query: jest.Mock };
+  let dataSource: { query: jest.Mock; transaction: jest.Mock };
+  let userService: jest.Mocked<UserService>;
+  let notificationService: jest.Mocked<NotificationService>;
+
+  const mockUserService = () => ({
+    findById: jest.fn(),
+  });
+
+  const mockNotificationService = () => ({
+    sendWalletTopupNotificationEmail: jest.fn(),
+  });
 
   beforeEach(async () => {
+    const mockDataSource = {
+      query: jest.fn(),
+      transaction: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WalletService,
@@ -44,7 +56,9 @@ describe('WalletService', () => {
           provide: getRepositoryToken(Transaction),
           useFactory: mockTransactionRepository,
         },
-        { provide: DataSource, useFactory: mockDataSource },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: UserService, useFactory: mockUserService },
+        { provide: NotificationService, useFactory: mockNotificationService },
       ],
     }).compile();
 
@@ -52,6 +66,10 @@ describe('WalletService', () => {
     walletRepository = module.get(getRepositoryToken(Wallet));
     transactionRepository = module.get(getRepositoryToken(Transaction));
     dataSource = module.get(DataSource);
+    userService = module.get(UserService) as jest.Mocked<UserService>;
+    notificationService = module.get(
+      NotificationService,
+    ) as jest.Mocked<NotificationService>;
   });
 
   describe('createWallet', () => {
@@ -126,5 +144,71 @@ describe('WalletService', () => {
         currency: SupportedCurrencies.NGN,
       });
     });
+  });
+
+  it('should fund the wallet successfully', async () => {
+    const wallet = {
+      id: 'wallet1',
+      currency: SupportedCurrencies.USD,
+      isActive: true,
+    };
+    const user = {
+      id: 'user1',
+      email: 'user@example.com',
+    };
+    const amount = 200;
+
+    service.findWalletById = jest.fn().mockResolvedValue(wallet as any);
+    userService.findById.mockResolvedValue(user as any);
+
+    const creditTransaction = {
+      id: 'tx1',
+      walletId: wallet.id,
+      amount,
+      createdAt: new Date(),
+    };
+    dataSource.transaction.mockImplementation(async (fn) => {
+      return fn({
+        getRepository: () => ({
+          create: (t) => ({ ...t }),
+          save: (t) =>
+            Promise.resolve({ ...t, id: 'tx1', createdAt: new Date() }),
+        }),
+      });
+    });
+
+    service.getWalletBalance = jest
+      .fn()
+      .mockResolvedValue({ availableBalance: 1000 });
+
+    const result = await service.fundWallet(wallet.id, amount, user.id);
+
+    expect(result.id).toBe('tx1');
+    expect(service.findWalletById).toHaveBeenCalledWith(wallet.id);
+    expect(userService.findById).toHaveBeenCalledWith(user.id);
+    expect(
+      notificationService.sendWalletTopupNotificationEmail,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userEmail: user.email,
+        amount,
+        currency: wallet.currency,
+        balanceAfter: 1000,
+        txId: 'tx1',
+      }),
+    );
+  });
+
+  it('should throw BadRequestException if wallet is inactive', async () => {
+    const wallet = {
+      id: 'wallet1',
+      currency: SupportedCurrencies.USD,
+      isActive: false,
+    };
+    service.findWalletById = jest.fn().mockResolvedValue(wallet as any);
+
+    await expect(service.fundWallet(wallet.id, 100, 'user1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });

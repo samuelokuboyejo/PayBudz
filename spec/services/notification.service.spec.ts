@@ -42,7 +42,7 @@ describe('NotificationService', () => {
       currency: 'USD',
       balanceAfter: 500,
       txId: 'tx123',
-      occurredAt: '2025-09-04T10:00:00Z',
+      occurredAt: new Date('2025-09-04T10:00:00Z'),
     };
 
     await service.sendWalletTopupNotificationEmail(params);
@@ -55,7 +55,7 @@ describe('NotificationService', () => {
         currency: 'USD',
         balanceAfter: '$500',
         txId: 'tx123',
-        occurredAt: '2025-09-04T10:00:00Z',
+        occurredAt: expect.any(Date),
       }),
     );
   });

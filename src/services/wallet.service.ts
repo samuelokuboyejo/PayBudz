@@ -2,6 +2,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -13,9 +14,13 @@ import { SupportedCurrencies } from '../enums/currency.enum';
 import { Transaction } from 'src/entities/transaction.entity';
 import { TransactionStatus } from 'src/enums/transaction-status.enum';
 import { TransactionType } from 'src/enums/transaction-type.enum';
+import { UserService } from './user.service';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class WalletService {
+  private logger = new Logger(WalletService.name);
+
   constructor(
     @InjectRepository(Wallet)
     private walletRepository: Repository<Wallet>,
@@ -23,6 +28,8 @@ export class WalletService {
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
     private dataSource: DataSource,
+    private userService: UserService,
+    private notificationService: NotificationService,
   ) {}
 
   async createWallet(createWalletDto: CreateWalletDto): Promise<Wallet> {
@@ -93,18 +100,48 @@ export class WalletService {
     };
   }
 
-  async addDummyTransaction(walletId: string) {
-    // Step 1: Create transaction as PENDING
-    const dummy = this.transactionRepository.create({
-      walletId: walletId,
-      type: TransactionType.DEBIT,
-      amount: 500,
-      status: TransactionStatus.SUCCESSFUL,
-      currency: 'NGN',
-      metadata: { test: true },
-    });
+  async fundWallet(walletId: string, amount: number, userId: string) {
+    const wallet = await this.findWalletById(walletId);
+    if (!wallet.isActive) {
+      throw new BadRequestException('Wallet is inactive');
+    }
 
-    const balance = await this.transactionRepository.save(dummy);
-    return balance;
+    const creditTransaction = await this.dataSource.transaction(
+      async (manager) => {
+        const transactionRepo = manager.getRepository(Transaction);
+
+        const tx = transactionRepo.create({
+          amount,
+          walletId: wallet.id,
+          currency: wallet.currency as SupportedCurrencies,
+          type: TransactionType.CREDIT,
+          status: TransactionStatus.SUCCESSFUL,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        return transactionRepo.save(tx);
+      },
+    );
+
+    const user = await this.userService.findById(userId);
+    try {
+      const balanceAfterCredit = await this.getWalletBalance(wallet.id);
+
+      await this.notificationService.sendWalletTopupNotificationEmail({
+        userEmail: user.email.trim(),
+        amount,
+        currency: wallet.currency,
+        balanceAfter: balanceAfterCredit.availableBalance,
+        txId: creditTransaction.id,
+        occurredAt: creditTransaction.createdAt,
+      });
+    } catch (err) {
+      this.logger.error(
+        `Failed to send fundWallet notification for walletId=${wallet.id}: ${err.message}`,
+      );
+    }
+
+    return creditTransaction;
   }
 }

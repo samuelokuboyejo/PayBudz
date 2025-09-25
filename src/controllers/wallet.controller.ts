@@ -9,17 +9,32 @@ import {
   HttpStatus,
   HttpCode,
   ParseUUIDPipe,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiParam,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiBody,
+} from '@nestjs/swagger';
 import { WalletService } from '../services/wallet.service';
 import { CreateWalletDto } from '../dto/wallet.dto';
 import { Wallet } from 'src/entities/wallet.entity';
 import { WalletBalanceDto } from 'src/dto/wallet-balance.dto';
+import { PaystackService } from 'src/services/paystack.service';
+import { TopUpDto } from 'src/dto/topup.dto';
+import { FirebaseAuthGuard } from 'src/auth/guards/auth.guard';
 
 @ApiTags('wallets')
 @Controller('wallets')
 export class WalletController {
-  constructor(private readonly walletService: WalletService) {}
+  constructor(
+    private readonly walletService: WalletService,
+    private readonly paystackService: PaystackService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -71,5 +86,21 @@ export class WalletController {
   ): Promise<WalletBalanceDto> {
     const balance = await this.walletService.getWalletBalance(walletId);
     return balance;
+  }
+
+  @Post('topup')
+  @ApiBody({ type: TopUpDto })
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth('Authorization')
+  @ApiOperation({ summary: 'Initiate wallet top-up' })
+  @ApiResponse({ status: 201, description: 'Payment link created.' })
+  async initiateTopUp(@Req() req: any, @Body() dto: TopUpDto) {
+    const user = req.user;
+    return this.paystackService.initiateTopUp(
+      user,
+      dto.amount,
+      dto.currency,
+      dto.email,
+    );
   }
 }
