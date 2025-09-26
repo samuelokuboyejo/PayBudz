@@ -117,6 +117,7 @@ describe('TransactionService', () => {
         type: TransactionType.CREDIT,
         status: TransactionStatus.SUCCESSFUL,
         isActive: true,
+        idempotencyKey: 'idempotent',
         createdAt: new Date(),
         updatedAt: new Date(),
       } as Transaction;
