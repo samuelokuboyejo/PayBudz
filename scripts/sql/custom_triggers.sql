@@ -1,29 +1,3 @@
--- Wallets table
-CREATE TABLE IF NOT EXISTS wallets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  currency VARCHAR(3) NOT NULL,
-  is_active BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE
-);
-
-CREATE TYPE transaction_type AS ENUM ('CREDIT', 'DEBIT');
-
-CREATE TABLE IF NOT EXISTS transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    reference TEXT NOT NULL,
-    wallet_id UUID NOT NULL REFERENCES wallets(id),
-    amount NUMERIC(20,6) NOT NULL,
-    currency VARCHAR(3) NOT NULL,
-    status transaction_status NOT NULL DEFAULT 'PENDING',
-    type transaction_type NOT NULL,
-    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at TIMESTAMP WITH TIME ZONE,
-
-    CONSTRAINT tx_wallet_idem UNIQUE (wallet_id, reference)
-);
-
 -- Explicit status transition matrix;
 CREATE TABLE IF NOT EXISTS tx_status_transition (
   from_status transaction_status NOT NULL,

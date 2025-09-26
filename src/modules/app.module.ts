@@ -31,18 +31,10 @@ import { PaystackModule } from './paystack.module';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('DB_HOST'),
-        port: configService.get('DB_PORT'),
-        username: configService.get('DB_USERNAME'),
-        password: configService.get('DB_PASSWORD'),
-        database: configService.get('DB_NAME'),
+        url: configService.get<string>('DATABASE_URL'),
         entities: [Wallet, Transaction, Transfer, User, WalletTopUpIntent],
         synchronize: configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
-        ssl:
-          configService.get('DB_SSL') === 'true'
-            ? { rejectUnauthorized: false }
-            : false,
       }),
       inject: [ConfigService],
     }),

@@ -96,6 +96,7 @@ export class PaystackService {
         webhookPayload && webhookPayload.data && webhookPayload.data.status;
 
       const isSuccessful = event === 'charge.success' && status === 'success';
+      intent.updatedAt = new Date();
 
       if (isSuccessful) {
         intent.status = TopUpStatus.COMPLETED;

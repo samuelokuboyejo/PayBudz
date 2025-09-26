@@ -4,11 +4,13 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Unique,
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
 @Entity('transactions')
+@Unique(['walletId', 'idempotencyKey'])
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -35,6 +37,7 @@ export class Transaction {
 
   @Column({
     type: 'enum',
+    enumName: 'transaction_type',
     enum: TransactionType,
   })
   type: TransactionType;
