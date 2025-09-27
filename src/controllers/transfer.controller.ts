@@ -13,7 +13,7 @@ export class TransferController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth('Authorization')
   @ApiOperation({ summary: 'Transfer funds to another user by username' })
-  @Post('transfer')
+  @Post()
   async transfer(@Body() dto: TransferDto, @Req() req: any) {
     const sourceUserId = req.user.uid;
     return this.transferService.transfer(sourceUserId, dto);
