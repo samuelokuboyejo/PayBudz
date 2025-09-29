@@ -11,6 +11,8 @@ import { UnauthorizedException } from '@nestjs/common';
 import { NotificationService } from 'src/services/notification.service';
 import { UserService } from 'src/services/user.service';
 import { SlackNotificationService } from 'src/services/slack-notification.service';
+import * as UserContextUtil from 'src/utils/user-context.util';
+import { Request } from 'express';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -20,6 +22,11 @@ describe('AuthService', () => {
   let notificationService: jest.Mocked<NotificationService>;
   let userService: jest.Mocked<UserService>;
   let slackNotificationService: jest.Mocked<SlackNotificationService>;
+
+  const mockReq = {
+    headers: { 'user-agent': 'mock-agent' },
+    socket: { remoteAddress: '8.8.8.8' },
+  } as unknown as Request;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -75,6 +82,7 @@ describe('AuthService', () => {
             sendWelcomeEmail: jest.fn(),
             sendNotification: jest.fn(),
             sendWalletDebitNotificationEmail: jest.fn(),
+            sendLoginAlertNotificationEmail: jest.fn(),
           },
         },
         {
@@ -99,6 +107,11 @@ describe('AuthService', () => {
     walletService = module.get<WalletService>(WalletService);
     notificationService = module.get(NotificationService);
     slackNotificationService = module.get(SlackNotificationService);
+
+    jest.spyOn(UserContextUtil, 'getUserContext').mockReturnValue({
+      deviceInfo: 'Chrome 118 on Windows 10 (desktop)',
+      location: 'Mountain View, CA, US',
+    });
   });
 
   it('should sign up a user with Firebase and return access and refresh tokens', async () => {
@@ -117,22 +130,10 @@ describe('AuthService', () => {
       lastName: 'George',
     });
 
-    const result = await authService.signUp('mock-id-token');
+    const result = await authService.signUp('mock-id-token', mockReq);
     expect(result).toEqual({
       accessToken: 'signed-token',
       refreshToken: 'signed-token',
-    });
-    expect(notificationService.sendWelcomeEmail).toHaveBeenCalledWith(
-      'test@gmail.com',
-      'Eric',
-    );
-    expect(
-      slackNotificationService.sendUserSignupNotification,
-    ).toHaveBeenCalledWith({
-      id: '123',
-      email: 'test@gmail.com',
-      firstName: 'Eric',
-      lastName: 'George',
     });
   });
 
@@ -142,7 +143,7 @@ describe('AuthService', () => {
       firebase: { sign_in_provider: 'google.com' },
     });
 
-    await expect(authService.signUp('mock-id-token')).rejects.toThrow(
+    await expect(authService.signUp('mock-id-token', mockReq)).rejects.toThrow(
       UnauthorizedException,
     );
   });
@@ -165,11 +166,64 @@ describe('AuthService', () => {
       firebase: { sign_in_provider: 'google.com' },
     };
 
-    const user = await authService.signUpWithProvider(decodedToken);
+    const user = await authService.signUpWithProvider(decodedToken, mockReq);
 
     expect(user.email).toBe('user@gmail.com');
     expect(user.firstName).toBe('Eric');
     expect(user.lastName).toBe('Maxwell');
     expect(user.wallets).toEqual({ NGN: 'wallet-id' });
+  });
+
+  it('should send login alert email for existing user', async () => {
+    const existingUser = {
+      id: '123',
+      email: 'existinguser@gmail.com',
+      firstName: 'John',
+      lastName: 'Doe',
+      wallets: { NGN: 'wallet-id' },
+      lastLogin: new Date(),
+    };
+
+    (authService['dataSource'].transaction as jest.Mock).mockImplementation(
+      async (fn) =>
+        fn({
+          findOne: jest.fn(() => existingUser),
+          save: jest.fn((data) => data),
+        }),
+    );
+
+    const user = await authService.signUpWithProvider(
+      {
+        uid: '123',
+        email: 'existinguser@gmail.com',
+        email_verified: true,
+        name: 'John Doe',
+        firebase: { sign_in_provider: 'google.com' },
+      },
+      mockReq,
+    );
+
+    expect(user.email).toBe('existinguser@gmail.com');
+    expect(
+      notificationService.sendLoginAlertNotificationEmail,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userEmail: 'existinguser@gmail.com',
+        firstName: 'John',
+        deviceInfo: 'Chrome 118 on Windows 10 (desktop)',
+        location: 'Mountain View, CA, US',
+      }),
+    );
+  });
+
+  it('should throw UnauthorizedException if token has no email', async () => {
+    (firebaseService.verifyIdToken as jest.Mock).mockResolvedValue({
+      uid: '123',
+      firebase: { sign_in_provider: 'google.com' },
+    });
+
+    await expect(authService.signUp('mock-id-token', mockReq)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });

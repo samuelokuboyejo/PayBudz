@@ -50,4 +50,7 @@ export class User {
 
   @Column()
   firebaseUid: string;
+
+  @UpdateDateColumn({ name: 'last_login', type: 'timestamptz' })
+  lastLogin: Date;
 }

@@ -3,14 +3,21 @@ import { Request } from 'express';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
-import { PaystackService } from './paystack.service';
+import axios, { AxiosResponse } from 'axios';
+import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
+import { DataSource } from 'typeorm';
+import { WalletService } from './wallet.service';
 
 @Injectable()
 export class WebhookService {
   private logger = new Logger(WebhookService.name);
+  private verifyUrl = this.configService.get<string>(
+    'PPAYSTACK_API_VERIFY_URL',
+  );
   constructor(
     private configService: ConfigService,
-    private paystackservice: PaystackService,
+    private dataSource: DataSource,
+    private walletService: WalletService,
   ) {}
 
   private paystackSecretKey = this.configService.get<string>(
@@ -39,8 +46,52 @@ export class WebhookService {
 
     const body: PaystackWebhookDto = req.body as PaystackWebhookDto;
     const reference = body.data.reference;
+    const event = body.event;
 
-    await this.paystackservice.finalizeTopUp(reference, body);
+    if (event.startsWith('charge.')) {
+      const verified = await this.verifyTransaction(reference);
+      if (verified) {
+        await this.walletService.processTopUpFromWebhook(reference, body);
+      } else {
+        this.logger.warn(
+          `Transaction verification failed for reference: ${reference}`,
+        );
+      }
+    } else if (event.startsWith('transfer.')) {
+      await this.walletService.processCashoutFromWebhook(reference, body);
+    } else {
+      this.logger.warn(`Unhandled Paystack event: ${event}`);
+    }
+
     return { status: 'ok' };
+  }
+
+  async verifyTransaction(
+    reference: string,
+  ): Promise<WalletTopUpIntent | null> {
+    const intent = await this.dataSource
+      .getRepository(WalletTopUpIntent)
+      .findOne({ where: { paystackReference: reference } });
+
+    if (!intent) return null;
+
+    try {
+      const url = `${this.verifyUrl}/${reference}`;
+      const response: AxiosResponse<any> = await axios.get(url, {
+        headers: { Authorization: `Bearer ${this.paystackSecretKey}` },
+      });
+
+      const status = response.data?.data?.status;
+      if (status === 'success' && intent.status !== 'COMPLETED') {
+        return intent;
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to verify transaction: ${reference}:  ${error.message}`,
+      );
+      return null;
+    }
   }
 }

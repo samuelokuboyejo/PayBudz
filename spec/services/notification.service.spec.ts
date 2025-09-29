@@ -123,7 +123,7 @@ describe('NotificationService', () => {
       currency: 'USD',
       balanceAfter: 350,
       txId: 'tx999',
-      occurredAt: '2025-09-04T10:03:00Z',
+      occurredAt: new Date(),
     };
 
     await service.sendWalletCashoutNotificationEmail(params);
@@ -135,7 +135,7 @@ describe('NotificationService', () => {
         amount: '-$300',
         currency: 'USD',
         balanceAfter: '$350',
-        occurredAt: '2025-09-04T10:03:00Z',
+        occurredAt: expect.any(String),
         txId: 'tx999',
       }),
     );

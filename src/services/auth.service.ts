@@ -14,6 +14,8 @@ import { DecodedToken } from 'src/interfaces/decoded-token.interface';
 import { AuthJwtPayload } from 'src/auth/types/auth-jwtPayload';
 import { NotificationService } from './notification.service';
 import { SlackNotificationService } from './slack-notification.service';
+import { getUserContext } from 'src/utils/user-context.util';
+import { Request } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -30,39 +32,14 @@ export class AuthService {
     private slackNotificationService: SlackNotificationService,
   ) {}
 
-  async signUp(idToken: string): Promise<AuthResponse> {
+  async signUp(idToken: string, req: Request): Promise<AuthResponse> {
     const decodedToken = await this.firebaseService.verifyIdToken(idToken);
 
     if (!decodedToken.email) {
       throw new UnauthorizedException('Email not found in token');
     }
 
-    const user = await this.signUpWithProvider(decodedToken);
-
-    try {
-      const emailResult = await this.notificationService.sendWelcomeEmail(
-        user.email,
-        user.firstName,
-      );
-      this.logger.log(
-        `Welcome email sent to ${user.email}. Result: ${JSON.stringify(
-          emailResult,
-        )}`,
-      );
-    } catch (err) {
-      this.logger.error(
-        `Failed to send welcome email to ${user.email}: ${err.message}`,
-        err.stack,
-      );
-    }
-    try {
-      await this.slackNotificationService.sendUserSignupNotification(user);
-    } catch (err) {
-      this.logger.error(
-        `Failed to send Slack notification for user ${user.id}: ${err.message}`,
-        err.stack,
-      );
-    }
+    const user = await this.signUpWithProvider(decodedToken, req);
 
     return this.generateTokens(user.id, user.email);
   }
@@ -137,7 +114,10 @@ export class AuthService {
     };
   }
 
-  async signUpWithProvider(decodedToken: DecodedToken): Promise<User> {
+  async signUpWithProvider(
+    decodedToken: DecodedToken,
+    req: Request,
+  ): Promise<User> {
     const authProvider =
       (decodedToken.firebase.sign_in_provider?.toLowerCase() as AuthProvider) ??
       AuthProvider.GOOGLE;
@@ -171,6 +151,57 @@ export class AuthService {
           [defaultWallet.currency]: defaultWallet.id,
         };
         await manager.save(user);
+
+        try {
+          const emailResult = await this.notificationService.sendWelcomeEmail(
+            user.email,
+            user.firstName,
+          );
+          this.logger.log(
+            `Welcome email sent to ${user.email}. Result: ${JSON.stringify(
+              emailResult,
+            )}`,
+          );
+        } catch (err) {
+          this.logger.error(
+            `Failed to send welcome email to ${user.email}: ${err.message}`,
+            err.stack,
+          );
+        }
+        try {
+          await this.slackNotificationService.sendUserSignupNotification(user);
+        } catch (err) {
+          this.logger.error(
+            `Failed to send Slack notification for user ${user.id}: ${err.message}`,
+            err.stack,
+          );
+        }
+      } else {
+        user.lastLogin = new Date();
+        await manager.save(user);
+
+        const { deviceInfo, location } = getUserContext(req);
+
+        try {
+          const emailResult =
+            await this.notificationService.sendLoginAlertNotificationEmail({
+              userEmail: user.email,
+              firstName: user.firstName,
+              loginTime: user.lastLogin,
+              deviceInfo,
+              location,
+            });
+          this.logger.log(
+            `Login alert email sent to ${user.email}. Result: ${JSON.stringify(
+              emailResult,
+            )}`,
+          );
+        } catch (err) {
+          this.logger.error(
+            `Failed to send login alert email to ${user.email}: ${err.message}`,
+            err.stack,
+          );
+        }
       }
       return user;
     });

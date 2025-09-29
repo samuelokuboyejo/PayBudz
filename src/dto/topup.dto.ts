@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNumber, IsPositive } from 'class-validator';
+import { IsEnum, IsNumber, IsPositive } from 'class-validator';
 import { SupportedCurrencies } from 'src/enums/currency.enum';
 
 export class TopUpDto {
@@ -8,7 +8,4 @@ export class TopUpDto {
 
   @IsEnum(SupportedCurrencies)
   currency: SupportedCurrencies;
-
-  @IsEmail()
-  email: string;
 }

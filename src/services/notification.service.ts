@@ -12,7 +12,11 @@ import {
   WalletCreditNotificationParams,
   WalletDebitNotificationParams,
   WalletCashoutNotificationParams,
+  WalletCashoutFailedNotificationParams,
+  LoginAlertNotificationParams,
 } from 'src/utils/notification-types';
+import { WalletCashoutFailedTemplate } from 'src/mail/templates/wallet-cashout-failed.template';
+import { LoginAlertTemplate } from 'src/mail/templates/login.template';
 
 @Injectable()
 export class NotificationService {
@@ -98,7 +102,41 @@ export class NotificationService {
       currency,
       balanceAfter: formatCurrency(balanceAfter, currency),
       txId,
+      occurredAt: formatDateTime(occurredAt),
+    });
+  }
+
+  async sendWalletCashoutFailedNotificationEmail(
+    params: WalletCashoutFailedNotificationParams,
+  ) {
+    const {
+      userEmail,
+      amount,
+      currency,
+      balanceAfter,
+      txId,
       occurredAt,
+      reason,
+    } = params;
+
+    return this.mailService.sendMail(userEmail, WalletCashoutFailedTemplate, {
+      amount: formatSignedAmount(amount, currency, false),
+      currency,
+      balanceAfter: formatCurrency(balanceAfter, currency),
+      txId,
+      occurredAt: formatDateTime(occurredAt),
+      reason,
+    });
+  }
+
+  async sendLoginAlertNotificationEmail(params: LoginAlertNotificationParams) {
+    const { userEmail, firstName, deviceInfo, location, loginTime } = params;
+
+    return this.mailService.sendMail(userEmail, LoginAlertTemplate, {
+      firstName,
+      deviceInfo,
+      location,
+      loginTime: formatDateTime(loginTime),
     });
   }
 }

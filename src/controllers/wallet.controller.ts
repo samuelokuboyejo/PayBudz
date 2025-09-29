@@ -24,17 +24,14 @@ import { WalletService } from '../services/wallet.service';
 import { CreateWalletDto } from '../dto/wallet.dto';
 import { Wallet } from 'src/entities/wallet.entity';
 import { WalletBalanceDto } from 'src/dto/wallet-balance.dto';
-import { PaystackService } from 'src/services/paystack.service';
 import { TopUpDto } from 'src/dto/topup.dto';
 import { FirebaseAuthGuard } from 'src/auth/guards/auth.guard';
+import { WalletCashoutDto } from 'src/dto/wallet-cashout.dto';
 
 @ApiTags('wallets')
 @Controller('wallets')
 export class WalletController {
-  constructor(
-    private readonly walletService: WalletService,
-    private readonly paystackService: PaystackService,
-  ) {}
+  constructor(private readonly walletService: WalletService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -92,15 +89,26 @@ export class WalletController {
   @ApiBody({ type: TopUpDto })
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth('Authorization')
-  @ApiOperation({ summary: 'Initiate wallet top-up' })
+  @ApiOperation({ summary: 'Initiate wallet top-up and return a payment link' })
   @ApiResponse({ status: 201, description: 'Payment link created.' })
   async initiateTopUp(@Req() req: any, @Body() dto: TopUpDto) {
-    const user = req.user;
-    return this.paystackService.initiateTopUp(
-      user,
+    const userId = req.user.id;
+    const email = req.user.email;
+    return this.walletService.getTopupPaymentLink(
+      userId,
       dto.amount,
       dto.currency,
-      dto.email,
+      email,
     );
+  }
+
+  @Post('cashout')
+  @ApiBody({ type: WalletCashoutDto })
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth('Authorization')
+  @ApiOperation({ summary: 'Initiate wallet Cash-out' })
+  async createCashout(@Req() req: any, @Body() dto: WalletCashoutDto) {
+    const userId = req.user.uid;
+    return this.walletService.initiateCashout(userId, dto);
   }
 }

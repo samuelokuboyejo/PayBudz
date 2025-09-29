@@ -1,148 +1,129 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaystackService } from 'src/services/paystack.service';
-import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
-import { Repository, DataSource } from 'typeorm';
-import { WalletService } from 'src/services/wallet.service';
 import { ConfigService } from '@nestjs/config';
-import { User } from 'src/entities/user.entity';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { TopUpStatus } from 'src/enums/topup-status.enum';
-import { SupportedCurrencies } from 'src/enums/currency.enum';
 import axios from 'axios';
+import { HttpService } from '@nestjs/axios';
 
 jest.mock('axios');
 
 describe('PaystackService', () => {
   let service: PaystackService;
-  let walletTopUpRepo: Repository<WalletTopUpIntent>;
-  let walletService: WalletService;
-  let dataSource: DataSource;
+  let httpService: HttpService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PaystackService,
         {
-          provide: getRepositoryToken(WalletTopUpIntent),
-          useValue: {
-            create: jest.fn(),
-            save: jest.fn(),
-            findOne: jest.fn(),
-          },
-        },
-        {
-          provide: WalletService,
-          useValue: {
-            fundWallet: jest.fn(),
-          },
-        },
-        {
-          provide: DataSource,
-          useValue: {
-            transaction: jest.fn((cb) =>
-              cb({
-                findOne: jest.fn(),
-                save: jest.fn(),
-              }),
-            ),
-          },
-        },
-        {
           provide: ConfigService,
           useValue: {
-            get: jest.fn((key: string) => 'test-value'),
+            get: jest.fn((key: string) => {
+              if (key === 'PAYSTACK_API_URL')
+                return 'https://api.paystack.test';
+              if (key === 'PAYSTACK_SECRET_KEY') return 'sk_test_secret';
+              return null;
+            }),
           },
         },
         {
-          provide: getRepositoryToken(User),
+          provide: HttpService,
           useValue: {
-            findOneOrFail: jest.fn().mockResolvedValue({
-              id: 'user-id',
-              wallets: { NGN: 'wallet-id' },
-            }),
+            axiosRef: {
+              post: jest.fn(),
+            },
           },
         },
       ],
     }).compile();
 
     service = module.get<PaystackService>(PaystackService);
-    walletTopUpRepo = module.get<Repository<WalletTopUpIntent>>(
-      getRepositoryToken(WalletTopUpIntent),
-    );
-    walletService = module.get<WalletService>(WalletService);
-    dataSource = module.get<DataSource>(DataSource);
+    httpService = module.get<HttpService>(HttpService);
   });
 
-  it('should create a topup intent and return payment link', async () => {
-    const mockUser: User = {
-      id: 'user-id',
-      firstName: 'Sam',
-      lastName: 'Maxwell',
-      username: 'sammy@gmail.com',
-      email: 'sammy@gmail.com',
-      isVerified: true,
-      dateOfBirth: null,
-      wallets: { NGN: 'wallet-id' },
-      authProvider: {},
-      firebaseUid: 'firebase-uid',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    const mockIntent = {
-      user: mockUser,
-      amount: 100,
-      currency: SupportedCurrencies.NGN,
-      status: TopUpStatus.PENDING,
-      paystackReference: 'ref-123',
-    };
-
-    jest.spyOn(walletTopUpRepo, 'create').mockReturnValue(mockIntent as any);
-    jest.spyOn(walletTopUpRepo, 'save').mockResolvedValue(mockIntent as any);
-    (axios.post as jest.Mock).mockResolvedValue({
-      data: { data: { authorization_url: 'https://paystack.test' } },
-    });
-
-    const result = await service.initiateTopUp(
-      mockUser.id,
-      100,
-      SupportedCurrencies.NGN,
-      'sammy@gmail.com',
-    );
-
-    expect(result.paymentLink).toBe('https://paystack.test');
-    expect(walletTopUpRepo.save).toHaveBeenCalledWith(mockIntent);
-  });
-
-  it('should finalize a successful topup', async () => {
-    const mockIntent = {
-      userId: 'user-id',
-      amount: 100,
-      status: TopUpStatus.PENDING,
-      currency: SupportedCurrencies.NGN,
-      user: { id: 'user-id', wallets: { NGN: 'wallet-id' } },
-    };
-
-    const mockWebhookPayload = {
-      event: 'charge.success',
-      data: {
-        status: 'success',
-        reference: 'ref-123',
-      },
-    };
-
-    (dataSource.transaction as jest.Mock).mockImplementation(async (cb) => {
-      await cb({
-        findOne: jest.fn().mockResolvedValue(mockIntent),
-        save: jest.fn(),
+  describe('initializePayment', () => {
+    it('should call Paystack initialize API and return authorization url', async () => {
+      (axios.post as jest.Mock).mockResolvedValue({
+        data: { data: { authorization_url: 'https://paystack.test/pay' } },
       });
-    });
 
-    await service.finalizeTopUp('ref-123', mockWebhookPayload);
-    expect(walletService.fundWallet).toHaveBeenCalledWith(
-      'wallet-id',
-      100,
-      'user-id',
-    );
+      const result = await service.initializePayment(
+        'ref-123',
+        100,
+        'user@example.com',
+      );
+
+      expect(result).toBe('https://paystack.test/pay');
+      expect(axios.post).toHaveBeenCalledWith(
+        'https://api.paystack.test/transaction/initialize',
+        {
+          amount: 100 * 100,
+          email: 'user@example.com',
+          reference: 'ref-123',
+        },
+        { headers: { Authorization: 'Bearer sk_test_secret' } },
+      );
+    });
+  });
+
+  describe('parseTopUpWebhook', () => {
+    it('should return a parsed object with success = true', async () => {
+      const payload = {
+        event: 'charge.success',
+        data: {
+          status: 'success',
+          amount: 50000,
+          currency: 'NGN',
+          metadata: { userId: 'user-123' },
+        },
+      };
+
+      const result = await service.parseTopUpWebhook('ref-123', payload);
+
+      expect(result.isSuccessful).toBe(true);
+      expect(result.userId).toBe('user-123');
+      expect(result.amount).toBe(500);
+    });
+  });
+
+  describe('parseCashoutWebhook', () => {
+    it('should return a parsed object with success = true', async () => {
+      const payload = {
+        event: 'transfer.success',
+        data: {
+          status: 'success',
+          amount: 100000,
+          currency: 'NGN',
+          metadata: { userId: 'user-123' },
+        },
+      };
+
+      const result = await service.parseCashoutWebhook('ref-xyz', payload);
+
+      expect(result.isSuccessful).toBe(true);
+      expect(result.amount).toBe(1000);
+    });
+  });
+
+  describe('createPayout', () => {
+    it('should create recipient and transfer successfully', async () => {
+      (httpService.axiosRef.post as jest.Mock)
+        .mockResolvedValueOnce({
+          data: { data: { recipient_code: 'recipient-123' } },
+        })
+        .mockResolvedValueOnce({
+          data: { status: 'success', reference: 'ref-123' },
+        });
+
+      const result = await service.createPayout(
+        '1234567890',
+        '001',
+        500,
+        'NGN',
+        'ref-123',
+      );
+
+      expect(httpService.axiosRef.post).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ status: 'success', reference: 'ref-123' });
+    });
   });
 });

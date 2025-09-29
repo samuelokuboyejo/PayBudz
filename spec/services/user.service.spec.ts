@@ -22,6 +22,7 @@ describe('UserService', () => {
     firebaseUid: 'firebase-uid',
     createdAt: new Date(),
     updatedAt: new Date(),
+    lastLogin: new Date(),
   };
 
   const mockRepository = {

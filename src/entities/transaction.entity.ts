@@ -50,4 +50,12 @@ export class Transaction {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @Column({
+    name: 'idempotency_key',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  idempotencyKey: string | null;
 }

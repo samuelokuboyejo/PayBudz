@@ -22,9 +22,11 @@ export class MailService {
   ) {
     try {
       const html = await render(template.render(data));
+      const fromName = this.configService.get<string>('EMAIL_FROM');
+      const fromEmail = this.configService.get<string>('EMAIL_DOMAIN');
 
       const response = await this.resend.emails.send({
-        from: this.configService.get<string>('EMAIL_DOMAIN'),
+        from: `${fromName} <${fromEmail}>`,
         to,
         subject: template.subject,
         html,

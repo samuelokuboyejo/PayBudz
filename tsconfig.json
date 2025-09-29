@@ -24,5 +24,5 @@
     "jsxImportSource": "react"
   },
 
-  "include": ["src/**/*", "config/**/*", "spec/**/*"]
+  "include": ["src/**/*", "config/**/*", "spec/**/*", "src/utils/**/*.d.ts"]
 }

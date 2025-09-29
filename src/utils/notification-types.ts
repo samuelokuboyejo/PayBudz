@@ -35,5 +35,23 @@ export type WalletCashoutNotificationParams = {
   currency: string;
   balanceAfter: number;
   txId: string;
-  occurredAt: string;
+  occurredAt: Date;
+};
+
+export type WalletCashoutFailedNotificationParams = {
+  userEmail: string;
+  amount: number;
+  currency: string;
+  balanceAfter: number;
+  txId: string;
+  occurredAt: Date;
+  reason: string;
+};
+
+export type LoginAlertNotificationParams = {
+  userEmail: string;
+  firstName: string;
+  deviceInfo: string;
+  loginTime: Date;
+  location: string;
 };

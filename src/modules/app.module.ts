@@ -20,6 +20,8 @@ import { SlackNotificationModule } from './slack-notification.module';
 import { CustomMigrationService } from 'src/migrations/custom.migrations';
 import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
 import { PaystackModule } from './paystack.module';
+import { WalletCashoutIntent } from 'src/entities/wallet-cashout-intent.entity';
+import { WebhookModule } from './webhook.module';
 
 @Module({
   imports: [
@@ -32,9 +34,17 @@ import { PaystackModule } from './paystack.module';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         url: configService.get<string>('DATABASE_URL'),
-        entities: [Wallet, Transaction, Transfer, User, WalletTopUpIntent],
+        entities: [
+          Wallet,
+          Transaction,
+          Transfer,
+          User,
+          WalletTopUpIntent,
+          WalletCashoutIntent,
+        ],
         synchronize: configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
+        schema: 'public',
       }),
       inject: [ConfigService],
     }),
@@ -47,6 +57,9 @@ import { PaystackModule } from './paystack.module';
     NotificationModule,
     SlackNotificationModule,
     PaystackModule,
+    WebhookModule,
+    PaystackModule,
+    WebhookModule,
   ],
   controllers: [AppController],
   providers: [AppService, CustomMigrationService, FirebaseAuthGuard],

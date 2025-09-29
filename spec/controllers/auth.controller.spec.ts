@@ -2,11 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from '../../src/controllers/auth.controller';
 import { AuthService } from '../../src/services/auth.service';
 import { AuthResponse } from '../../src/dto/auth-response';
+import { Request } from 'express';
 
 describe('AuthController', () => {
   let authController: AuthController;
   let authService: AuthService;
 
+  const mockReq = {
+    headers: { 'user-agent': 'mock-agent' },
+    socket: { remoteAddress: '8.8.8.8' },
+  } as unknown as Request;
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -34,9 +39,9 @@ describe('AuthController', () => {
 
     (authService.signUp as jest.Mock).mockResolvedValue(mockResponse);
 
-    const result = await authController.signUp(mockIdToken);
+    const result = await authController.signUp(mockIdToken, mockReq);
 
-    expect(authService.signUp).toHaveBeenCalledWith(mockIdToken);
+    expect(authService.signUp).toHaveBeenCalledWith(mockIdToken, mockReq);
     expect(result).toEqual(mockResponse);
   });
 

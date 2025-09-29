@@ -14,6 +14,9 @@ import { SupportedCurrencies } from '../../src/enums/currency.enum';
 import { FirebaseAuthGuard } from 'src/auth/guards/auth.guard';
 import { PaystackService } from 'src/services/paystack.service';
 import { TopUpDto } from 'src/dto/topup.dto';
+import { WalletCashoutDto } from 'src/dto/wallet-cashout.dto';
+import { CashoutStatus } from 'src/enums/cashout-status.enum';
+import { WalletCashoutIntent } from 'src/entities/wallet-cashout-intent.entity';
 
 class MockFirebaseAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
@@ -33,6 +36,8 @@ describe('WalletController', () => {
       getWalletBalance: jest.fn(),
       activateWallet: jest.fn(),
       deactivateWallet: jest.fn(),
+      getTopupPaymentLink: jest.fn(),
+      initiateCashout: jest.fn(),
     };
 
     const mockPaystackService = {
@@ -128,30 +133,65 @@ describe('WalletController', () => {
   });
 
   describe('initiateTopUp', () => {
-    it('should call paystackService.initiateTopUp and return the result', async () => {
+    it('should call walletService.getTopupPaymentLink and return the result', async () => {
       const dto: TopUpDto = {
         amount: 1000,
         currency: SupportedCurrencies.NGN,
-        email: 'user@test.com',
       };
+
       const mockUser = { id: 'user-id-123', email: 'user@test.com' };
       const mockResponse = { paymentLink: 'https://paystack.com/pay/123' };
 
-      paystackService.initiateTopUp.mockResolvedValue(mockResponse);
+      service.getTopupPaymentLink.mockResolvedValue(mockResponse);
 
       const req = { user: mockUser } as any;
 
       const result = await controller.initiateTopUp(req, dto);
 
-      expect(paystackService.initiateTopUp).toHaveBeenCalledWith(
-        mockUser,
+      expect(service.getTopupPaymentLink).toHaveBeenCalledWith(
+        mockUser.id,
         dto.amount,
         dto.currency,
-        dto.email,
+        mockUser.email,
       );
+
       expect(result).toEqual(mockResponse);
     });
   });
 
+  describe('createCashout', () => {
+    it('should call walletService.initiateCashout and return the result', async () => {
+      const mockUser = { uid: 'user-id-123' };
+      const dto: WalletCashoutDto = {
+        bankAccountNumber: '1234567890',
+        bankCode: '001',
+        amount: 500,
+        currency: SupportedCurrencies.NGN,
+      };
 
+      const mockIntent: Partial<WalletCashoutIntent> = {
+        id: 'intent1',
+        userId: mockUser.uid,
+        amount: dto.amount,
+        currency: dto.currency,
+        bankAccountNumber: dto.bankAccountNumber,
+        bankCode: dto.bankCode,
+        status: CashoutStatus.PENDING,
+        paystackReference: 'paystack-ref-123',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        webhookPayload: null,
+      };
+
+      service.initiateCashout.mockResolvedValue(
+        mockIntent as WalletCashoutIntent,
+      );
+      const req = { user: mockUser } as any;
+
+      const result = await controller.createCashout(req, dto);
+
+      expect(service.initiateCashout).toHaveBeenCalledWith(mockUser.uid, dto);
+      expect(result).toEqual(mockIntent);
+    });
+  });
 });

@@ -1,31 +1,21 @@
-import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
-import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
-import { TopUpStatus } from 'src/enums/topup-status.enum';
-import { Repository, DataSource } from 'typeorm';
-import { WalletService } from './wallet.service';
-import { Logger, NotFoundException } from '@nestjs/common';
+import { Logger, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
-import { SupportedCurrencies } from 'src/enums/currency.enum';
-import { User } from 'src/entities/user.entity';
+import { HttpService } from '@nestjs/axios';
 
+@Injectable()
 export class PaystackService {
   private logger = new Logger(PaystackService.name);
+
   constructor(
-    @InjectRepository(WalletTopUpIntent)
-    private walletTopUpIntentRepository: Repository<WalletTopUpIntent>,
-
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-
-    private dataSource: DataSource,
-    private walletService: WalletService,
     private configService: ConfigService,
+    private httpService: HttpService,
   ) {}
 
-  private baseUrl = this.configService.get<string>('PAYSTACK_URL');
-  private secretKey = this.configService.get<string>('PAYSTACK_SECRET_KEY');
+  private baseUrl = this.configService.get<string>('PAYSTACK_API_URL');
+  private paystackecretKey = this.configService.get<string>(
+    'PAYSTACK_SECRET_KEY',
+  );
 
   async initializePayment(intentId: string, amount: number, email: string) {
     const response = await axios.post(
@@ -36,90 +26,79 @@ export class PaystackService {
         reference: intentId,
       },
       {
-        headers: { Authorization: `Bearer ${this.secretKey}` },
+        headers: { Authorization: `Bearer ${this.paystackecretKey}` },
       },
     );
     return response.data.data.authorization_url;
   }
 
-  async verifyPayment(reference: string) {
-    const response = await axios.get(
-      `${this.baseUrl}/transaction/verify/${reference}`,
-      {
-        headers: { Authorization: `Bearer ${this.secretKey}` },
-      },
-    );
-    return response.data.data;
+  async parseTopUpWebhook(reference: string, webhookPayload: any) {
+    const event = webhookPayload?.event;
+    const status = webhookPayload?.data?.status;
+    const isSuccessful = event === 'charge.success' && status === 'success';
+
+    return {
+      isSuccessful,
+      reference,
+      payload: webhookPayload,
+      userId: webhookPayload?.data?.metadata?.userId,
+      amount: webhookPayload?.data?.amount / 100,
+      currency: webhookPayload?.data?.currency,
+    };
   }
 
-  async initiateTopUp(
-    userId: string,
+  async parseCashoutWebhook(reference: string, webhookPayload: any) {
+    const event = webhookPayload?.event;
+    const status = webhookPayload?.data?.status;
+    const isSuccessful = event === 'transfer.success' || status === 'success';
+    return {
+      isSuccessful,
+      reference,
+      payload: webhookPayload,
+      userId: webhookPayload?.data?.metadata?.userId,
+      amount: webhookPayload?.data?.amount / 100,
+      currency: webhookPayload?.data?.currency,
+    };
+  }
+
+  async createPayout(
+    accountNumber: string,
+    bankCode: string,
     amount: number,
-    currency: SupportedCurrencies,
-    email: string,
-  ) {
-    const paystackReference = crypto.randomUUID();
+    currency: string,
+    reference: string,
+  ): Promise<any> {
+    try {
+      const recipientRes = await this.httpService.axiosRef.post(
+        `${this.baseUrl}/transferrecipient`,
+        {
+          type: 'nuban',
+          name: 'Cashout Recipient',
+          account_number: accountNumber,
+          bank_code: bankCode,
+          currency,
+        },
+        { headers: { Authorization: `Bearer ${this.paystackecretKey}` } },
+      );
 
-    const intent = this.walletTopUpIntentRepository.create({
-      userId,
-      amount,
-      currency,
-      status: TopUpStatus.PENDING,
-      paystackReference,
-    });
+      const recipientCode = recipientRes.data.data.recipient_code;
 
-    await this.walletTopUpIntentRepository.save(intent);
+      const transferRes = await this.httpService.axiosRef.post(
+        `${this.baseUrl}/transfer`,
+        {
+          source: 'balance',
+          amount: Math.round(Number(amount) * 100),
+          recipient: recipientCode,
+          reference,
+          reason: 'Wallet Cashout',
+        },
+        { headers: { Authorization: `Bearer ${this.paystackecretKey}` } },
+      );
 
-    const paymentLink = await this.initializePayment(
-      paystackReference,
-      amount,
-      email,
-    );
-
-    return { paymentLink };
-  }
-
-  async finalizeTopUp(reference: string, webhookPayload: any) {
-    await this.dataSource.transaction(async (manager) => {
-      const intent = await manager.findOne(WalletTopUpIntent, {
-        where: { paystackReference: reference },
-      });
-
-      if (!intent) {
-        throw new Error('Wallet top up intent not found');
-      }
-
-      intent.webhookPayload = webhookPayload;
-
-      const event = webhookPayload && webhookPayload.event;
-      const status =
-        webhookPayload && webhookPayload.data && webhookPayload.data.status;
-
-      const isSuccessful = event === 'charge.success' && status === 'success';
-      intent.updatedAt = new Date();
-
-      if (isSuccessful) {
-        intent.status = TopUpStatus.COMPLETED;
-        await manager.save(intent);
-
-        const user = await this.userRepository.findOneOrFail({
-          where: { id: intent.userId },
-        });
-
-        const walletId = user.wallets[intent.currency];
-        if (!walletId) {
-          throw new NotFoundException('Wallet not found for this currency');
-        }
-
-        await this.walletService.fundWallet(
-          walletId,
-          intent.amount,
-          intent.userId,
-        );
-      } else {
-        intent.status = TopUpStatus.FAILED;
-        await manager.save(intent);
-      }
-    });
+      return transferRes.data;
+    } catch (error) {
+      this.logger.error('Error creating Paystack payout', error);
+      throw error;
+    }
   }
 }
