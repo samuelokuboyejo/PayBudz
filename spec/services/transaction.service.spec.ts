@@ -120,7 +120,6 @@ describe('TransactionService', () => {
         idempotencyKey: 'idempotent',
         createdAt: new Date(),
         updatedAt: new Date(),
-        idempotencyKey: '123qwer',
       } as Transaction;
 
       transactionRepository.findOne.mockResolvedValue(transaction);
