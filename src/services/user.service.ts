@@ -109,15 +109,6 @@ export class UserService {
     return user;
   }
 
-  // async findByWalletId(walletId: string): Promise<User> {
-  //   return this.userRepository
-  //     .createQueryBuilder('user')
-  //     .where(`user.wallets @> :wallet`, {
-  //       wallet: JSON.stringify({ NGN: walletId }),
-  //     })
-  //     .getOne();
-  // }
-
   async findByWalletId(walletId: string): Promise<User | null> {
     return this.userRepository
       .createQueryBuilder('user')
