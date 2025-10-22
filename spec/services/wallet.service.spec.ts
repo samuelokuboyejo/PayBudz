@@ -15,6 +15,7 @@ import { CashoutStatus } from 'src/enums/cashout-status.enum';
 import { WalletCashoutDto } from 'src/dto/wallet-cashout.dto';
 import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
 import { TopUpStatus } from 'src/enums/topup-status.enum';
+import { AdminAnalyticsService } from 'src/services/admin-analytics-service';
 
 const mockWalletRepository = () => ({
   create: jest.fn(),
@@ -55,7 +56,12 @@ const mockNotificationService = () => ({
   sendWalletCashoutNotificationEmail: jest.fn(),
   sendWalletCashoutFailedNotificationEmail: jest.fn(),
 });
-
+const mockAdminAnalyticsService = {
+  incrementUsers: jest.fn(),
+  recordTransaction: jest.fn(),
+  updateUserTransactionStats: jest.fn(),
+  markWalletActive: jest.fn(),
+};
 describe('WalletService', () => {
   let service: WalletService;
   let walletRepository: jest.Mocked<Repository<Wallet>>;
@@ -98,6 +104,7 @@ describe('WalletService', () => {
         { provide: UserService, useFactory: mockUserService },
         { provide: NotificationService, useFactory: mockNotificationService },
         { provide: PaystackService, useFactory: mockPaystackService },
+        { provide: AdminAnalyticsService, useValue: mockAdminAnalyticsService },
       ],
     }).compile();
 
@@ -131,6 +138,7 @@ describe('WalletService', () => {
         isActive: false,
         createdAt: new Date(),
         updatedAt: new Date(),
+        transactionCount: 0,
       };
 
       walletRepository.create.mockReturnValue(createdWallet);
@@ -220,7 +228,7 @@ describe('WalletService', () => {
     dataSource.transaction.mockImplementation(async (fn) => {
       return fn({
         getRepository: () => ({
-          create: (t) => ({ ...t }),
+          create: (t) => ({ ...t, id: 'tx1' }),
           save: (t) =>
             Promise.resolve({ ...t, id: 'tx1', createdAt: new Date() }),
         }),
@@ -386,7 +394,7 @@ describe('WalletService', () => {
       const payload = { data: { status: 'success' } };
       const user = {
         id: 'user123',
-        email: 'test@example.com',
+        email: 'user@gmail.com',
         wallets: { NGN: 'wallet123' },
       };
 
@@ -398,32 +406,50 @@ describe('WalletService', () => {
         amount: 200,
         currency: 'NGN',
       });
+
       walletCashoutIntentRepository.findOne.mockResolvedValue({
         id: 'intent1',
         paystackReference: reference,
       } as any);
       walletCashoutIntentRepository.save.mockResolvedValue({} as any);
-      userService.findById.mockResolvedValue(user as any);
-      service.findWalletById = jest
-        .fn()
-        .mockResolvedValue({ id: 'wallet123', currency: 'NGN' } as any);
-      service.getWalletBalance = jest
-        .fn()
-        .mockResolvedValue({ availableBalance: 800 });
 
-      transactionRepository.create.mockReturnValue({ id: 'tx1' } as any);
-      transactionRepository.save.mockResolvedValue({ id: 'tx1' } as any);
+      userService.findById.mockResolvedValue(user as any);
+
+      service.findWalletById = jest.fn().mockResolvedValue({
+        id: 'wallet123',
+        currency: 'NGN',
+      } as any);
+      service.getWalletBalance = jest.fn().mockResolvedValue({
+        availableBalance: 800,
+      });
+
+      dataSource.transaction.mockImplementation(async (fn) =>
+        fn({
+          getRepository: () => ({
+            create: (tx) => ({ ...tx }),
+            save: async (tx) => Object.assign(tx, { id: 'tx1' }),
+          }),
+        }),
+      );
 
       const result = await service.processCashoutFromWebhook(
         reference,
         payload,
       );
 
-      expect(transactionRepository.save).toHaveBeenCalled();
       expect(
         notificationService.sendWalletCashoutNotificationEmail,
-      ).toHaveBeenCalled();
-      expect(result).toEqual({ id: 'tx1' });
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userEmail: user.email,
+          amount: 200,
+          currency: 'NGN',
+          balanceAfter: 800,
+          txId: 'tx1',
+        }),
+      );
+
+      expect(result).toHaveProperty('id', 'tx1');
     });
 
     it('should send failed notification if cashout unsuccessful', async () => {

@@ -8,8 +8,11 @@ import { Repository, DataSource } from 'typeorm';
 import { Transfer } from '../../src/entities/transfer.entity';
 import { TransferDto } from 'src/dto/transfer.dto';
 import { SupportedCurrencies } from 'src/enums/currency.enum';
+import { AdminAnalyticsService } from 'src/services/admin-analytics-service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('TransferService', () => {
+  let module: TestingModule;
   let service: TransferService;
   let userService: jest.Mocked<UserService>;
   let walletService: jest.Mocked<WalletService>;
@@ -17,8 +20,15 @@ describe('TransferService', () => {
   let slackService: jest.Mocked<SlackNotificationService>;
   let transferRepo: jest.Mocked<Repository<Transfer>>;
   let dataSource: jest.Mocked<DataSource>;
+  let eventEmitter: jest.Mocked<EventEmitter2>;
 
   beforeEach(async () => {
+    const mockAdminAnalyticsService = {
+      incrementUsers: jest.fn(),
+      recordTransaction: jest.fn(),
+      updateUserTransactionStats: jest.fn(),
+      markWalletActive: jest.fn(),
+    };
     const mockTransferRepo = { create: jest.fn(), save: jest.fn() } as any;
     const mockDataSource = {
       transaction: jest
@@ -28,7 +38,9 @@ describe('TransferService', () => {
         ),
     } as any;
 
-    const module: TestingModule = await Test.createTestingModule({
+    const mockEventEmitter = { emit: jest.fn() };
+
+    module = await Test.createTestingModule({
       providers: [
         TransferService,
         {
@@ -52,6 +64,8 @@ describe('TransferService', () => {
         },
         { provide: DataSource, useValue: mockDataSource },
         { provide: 'TransferRepository', useValue: mockTransferRepo },
+        { provide: AdminAnalyticsService, useValue: mockAdminAnalyticsService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 
@@ -68,6 +82,11 @@ describe('TransferService', () => {
       Repository<Transfer>
     >;
     dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
+    eventEmitter = module.get(EventEmitter2) as jest.Mocked<EventEmitter2>;
+  });
+
+  afterAll(async () => {
+    await module.close();
   });
 
   it('should perform a transfer successfully', async () => {
@@ -151,14 +170,18 @@ describe('TransferService', () => {
     const result = await service.transfer(sourceUser.id, dto);
 
     expect(result.id).toBe('transfer1');
+    expect(walletService.getWalletBalance).toHaveBeenCalledTimes(1);
     expect(walletService.getWalletBalance).toHaveBeenCalledWith('wallet1');
-    expect(walletService.getWalletBalance).toHaveBeenCalledWith('wallet2');
-    expect(
-      notificationService.sendWalletDebitNotificationEmail,
-    ).toHaveBeenCalled();
-    expect(
-      notificationService.sendWalletCreditNotificationEmail,
-    ).toHaveBeenCalled();
-    expect(slackService.sendTransactionSuccess).toHaveBeenCalled();
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'transfer.completed',
+      expect.objectContaining({
+        amount: dto.amount,
+        sourceUser,
+        destinationUser,
+        sourceWallet,
+        destinationWallet,
+        transfer: expect.any(Object),
+      }),
+    );
   });
 });

@@ -9,6 +9,7 @@ import { NotificationModule } from './notification.module';
 import { WalletCashoutIntent } from 'src/entities/wallet-cashout-intent.entity';
 import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
 import { PaystackModule } from './paystack.module';
+import { AdminAnalyticsModule } from './admin-analytics.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PaystackModule } from './paystack.module';
     UserModule,
     NotificationModule,
     PaystackModule,
+    AdminAnalyticsModule,
   ],
   controllers: [WalletController],
   providers: [WalletService],

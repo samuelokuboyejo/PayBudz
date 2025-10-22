@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Wallet } from '../entities/wallet.entity';
 import { CreateWalletDto } from '../dto/wallet.dto';
 import { WalletBalanceDto } from 'src/dto/wallet-balance.dto';
@@ -23,6 +23,8 @@ import { randomUUID } from 'crypto';
 import { PaystackService } from './paystack.service';
 import { TopUpStatus } from 'src/enums/topup-status.enum';
 import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
+import { v4 as uuidv4 } from 'uuid';
+import { AdminAnalyticsService } from './admin-analytics-service';
 
 @Injectable()
 export class WalletService {
@@ -44,6 +46,7 @@ export class WalletService {
     private userService: UserService,
     private notificationService: NotificationService,
     private paystackService: PaystackService,
+    private adminAnalyticsService: AdminAnalyticsService,
   ) {}
 
   async createWallet(createWalletDto: CreateWalletDto): Promise<Wallet> {
@@ -120,23 +123,39 @@ export class WalletService {
       throw new BadRequestException('Wallet is inactive');
     }
 
-    const creditTransaction = await this.dataSource.transaction(
-      async (manager) => {
-        const transactionRepo = manager.getRepository(Transaction);
+    let creditTransaction: Transaction;
 
-        const tx = transactionRepo.create({
-          amount,
-          walletId: wallet.id,
-          currency: wallet.currency as SupportedCurrencies,
-          type: TransactionType.CREDIT,
-          status: TransactionStatus.SUCCESSFUL,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+    await this.dataSource.transaction(async (manager) => {
+      const transactionRepo = manager.getRepository(Transaction);
 
-        return transactionRepo.save(tx);
-      },
-    );
+      creditTransaction = transactionRepo.create({
+        amount,
+        walletId: wallet.id,
+        currency: wallet.currency as SupportedCurrencies,
+        type: TransactionType.CREDIT,
+        status: TransactionStatus.SUCCESSFUL,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        idempotencyKey: uuidv4(),
+      });
+      await transactionRepo.save(creditTransaction);
+
+      await this.adminAnalyticsService.recordTransaction(
+        amount,
+        manager,
+        userId,
+        TransactionType.CREDIT,
+        wallet.currency,
+        creditTransaction.idempotencyKey,
+      );
+
+      await this.adminAnalyticsService.updateUserTransactionStats(
+        userId,
+        amount,
+        TransactionType.CREDIT,
+        manager,
+      );
+    });
 
     const user = await this.userService.findById(userId);
     try {
@@ -291,17 +310,40 @@ export class WalletService {
       return;
     }
 
-    const debitTx = this.transactionRepository.create({
-      amount: result.amount,
-      walletId,
-      currency: wallet.currency,
-      type: TransactionType.DEBIT,
-      status: TransactionStatus.SUCCESSFUL,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      metadata: { paystackReference: reference },
+    let debitTx: Transaction;
+
+    await this.dataSource.transaction(async (manager) => {
+      const transactionRepo = manager.getRepository(Transaction);
+
+      debitTx = transactionRepo.create({
+        amount: result.amount,
+        walletId,
+        currency: wallet.currency,
+        type: TransactionType.DEBIT,
+        status: TransactionStatus.SUCCESSFUL,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        metadata: { paystackReference: reference },
+        idempotencyKey: uuidv4(),
+      });
+      await transactionRepo.save(debitTx);
+
+      await this.adminAnalyticsService.recordTransaction(
+        result.amount,
+        manager,
+        user.id,
+        TransactionType.DEBIT,
+        wallet.currency,
+        debitTx.idempotencyKey,
+      );
+
+      await this.adminAnalyticsService.updateUserTransactionStats(
+        user.id,
+        result.amount,
+        TransactionType.DEBIT,
+        manager,
+      );
     });
-    await this.transactionRepository.save(debitTx);
 
     await this.notificationService.sendWalletCashoutNotificationEmail({
       userEmail: user.email,
@@ -313,5 +355,51 @@ export class WalletService {
     });
 
     return debitTx;
+  }
+
+  private async checkoutcreateAndRecordTransaction(
+    manager: EntityManager,
+    params: {
+      amount: number;
+      walletId: string;
+      userId: string;
+      currency: SupportedCurrencies;
+      type: TransactionType;
+      metadata?: any;
+    },
+  ): Promise<Transaction> {
+    const transactionRepo = manager.getRepository(Transaction);
+
+    const transaction = transactionRepo.create({
+      amount: params.amount,
+      walletId: params.walletId,
+      currency: params.currency,
+      type: params.type,
+      status: TransactionStatus.SUCCESSFUL,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      metadata: params.metadata || {},
+      idempotencyKey: uuidv4(),
+    });
+
+    await transactionRepo.save(transaction);
+
+    await this.adminAnalyticsService.recordTransaction(
+      params.amount,
+      manager,
+      params.userId,
+      params.type,
+      params.currency,
+      transaction.idempotencyKey,
+    );
+
+    await this.adminAnalyticsService.updateUserTransactionStats(
+      params.userId,
+      params.amount,
+      params.type,
+      manager,
+    );
+
+    return transaction;
   }
 }

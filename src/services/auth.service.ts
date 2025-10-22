@@ -16,6 +16,8 @@ import { NotificationService } from './notification.service';
 import { SlackNotificationService } from './slack-notification.service';
 import { getUserContext } from 'src/utils/user-context.util';
 import { Request } from 'express';
+import { AdminAnalyticsService } from './admin-analytics-service';
+import { UserSignupEvent } from 'src/entities/user-sign-up-event.entity';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +32,7 @@ export class AuthService {
     private walletService: WalletService,
     private notificationService: NotificationService,
     private slackNotificationService: SlackNotificationService,
+    private adminAnalyticsService: AdminAnalyticsService,
   ) {}
 
   async signUp(idToken: string, req: Request): Promise<AuthResponse> {
@@ -142,6 +145,8 @@ export class AuthService {
           firebaseUid: decodedToken.uid,
         });
         await manager.save(user);
+        await manager.save(UserSignupEvent, { userId: user.id });
+        await this.adminAnalyticsService.incrementUsers(manager);
 
         const defaultWallet = await this.walletService.createWallet({
           currency: SupportedCurrencies.NGN,

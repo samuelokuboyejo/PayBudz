@@ -9,6 +9,7 @@ import { User } from 'src/entities/user.entity';
 import { UserProfileResponse } from 'src/user/dto/user-profile-response';
 import { UsernameResponse } from 'src/dto/username-response';
 import { UsernameAvailabilityResponse } from 'src/dto/username-availability-response';
+import { SupportedCurrencies } from 'src/enums/currency.enum';
 
 @Injectable()
 export class UserService {
@@ -24,7 +25,10 @@ export class UserService {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      username: user.username,
       isVerified: user.isVerified,
+      wallets: user.wallets || null,
+      createdAt: user.createdAt,
     };
 
     return response;
@@ -103,5 +107,40 @@ export class UserService {
     }
 
     return user;
+  }
+
+  // async findByWalletId(walletId: string): Promise<User> {
+  //   return this.userRepository
+  //     .createQueryBuilder('user')
+  //     .where(`user.wallets @> :wallet`, {
+  //       wallet: JSON.stringify({ NGN: walletId }),
+  //     })
+  //     .getOne();
+  // }
+
+  async findByWalletId(walletId: string): Promise<User | null> {
+    return this.userRepository
+      .createQueryBuilder('user')
+      .where(
+        `EXISTS (
+      SELECT 1
+      FROM jsonb_each_text(user.wallets) AS w(currency, id)
+      WHERE w.id = :walletId
+    )`,
+        { walletId },
+      )
+      .getOne();
+  }
+
+  async getUserWallets(
+    email: string,
+  ): Promise<Partial<Record<SupportedCurrencies, string>> | null> {
+    const user = await this.findByEmail(email);
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return user.wallets || null;
   }
 }

@@ -51,10 +51,9 @@ export class TransactionController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    const walletId = req.user.wallets[currency];
-
-    return this.transactionService.findTransactions(
-      walletId,
+    const user = req.user;
+    return this.transactionService.getUserTransactionHistory(
+      user,
       status,
       currency,
       sort,

@@ -17,13 +17,22 @@ import {
 } from 'src/utils/notification-types';
 import { WalletCashoutFailedTemplate } from 'src/mail/templates/wallet-cashout-failed.template';
 import { LoginAlertTemplate } from 'src/mail/templates/login.template';
+import { WalletActivatedTemplate } from 'src/mail/templates/wallet-activated.template';
 
 @Injectable()
 export class NotificationService {
   constructor(private readonly mailService: MailService) {}
 
   async sendWelcomeEmail(userEmail: string, firstName: string) {
-    return this.mailService.sendMail(userEmail, WelcomeTemplate, { firstName });
+    return this.mailService.sendMail(userEmail, WelcomeTemplate, {
+      firstName,
+    });
+  }
+
+  async sendWalletActivationEmail(userEmail: string, firstName: string) {
+    return this.mailService.sendMail(userEmail, WalletActivatedTemplate, {
+      firstName,
+    });
   }
 
   async sendWalletTopupNotificationEmail(
@@ -37,7 +46,7 @@ export class NotificationService {
       currency,
       balanceAfter: formatCurrency(balanceAfter, currency),
       txId,
-      occurredAt,
+      formattedDateTime: formatDateTime(occurredAt),
     });
   }
 

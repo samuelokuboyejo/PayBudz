@@ -75,6 +75,7 @@ describe('WalletController', () => {
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
+        transactionCount: 0,
       };
 
       service.createWallet.mockResolvedValue(createdWallet);

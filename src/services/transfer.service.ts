@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,23 +13,19 @@ import { TransactionType } from 'src/enums/transaction-type.enum';
 import { SupportedCurrencies } from 'src/enums/currency.enum';
 import { TransactionStatus } from 'src/enums/transaction-status.enum';
 import Decimal from 'decimal.js';
-import { NotificationService } from './notification.service';
 import { UserService } from './user.service';
-import { SlackNotificationService } from './slack-notification.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class TransferService {
-  private logger = new Logger(TransferService.name);
-
   constructor(
     @InjectRepository(Transfer)
     private transferRepository: Repository<Transfer>,
 
     private dataSource: DataSource,
     private walletService: WalletService,
-    private notificationService: NotificationService,
     private userService: UserService,
-    private slackNotificationService: SlackNotificationService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findTransferById(id: string): Promise<Transfer> {
@@ -66,6 +61,7 @@ export class TransferService {
     if (!sourceWalletId) {
       throw new NotFoundException('Source wallet not found for this currency');
     }
+
     const sourceWallet = await this.walletService.findWalletById(
       sourceWalletId,
     );
@@ -76,8 +72,8 @@ export class TransferService {
     if (!destinationUser) {
       throw new NotFoundException('Destination user not found');
     }
-    const destinationWalletId = destinationUser.wallets[dto.currency];
 
+    const destinationWalletId = destinationUser.wallets[dto.currency];
     const destinationWallet = await this.walletService.findWalletById(
       destinationWalletId,
     );
@@ -119,6 +115,7 @@ export class TransferService {
           status: TransactionStatus.SUCCESSFUL,
           createdAt: new Date(),
           updatedAt: new Date(),
+          idempotencyKey: dto.idempotencyKey,
         });
         return transactionRepo.save(transaction);
       };
@@ -150,50 +147,17 @@ export class TransferService {
 
       await transferRepo.save(transfer);
     });
-
-    await this.slackNotificationService.sendTransactionSuccess({
-      type: 'TRANSFER',
+    this.eventEmitter.emit('transfer.completed', {
       amount: dto.amount,
-      currency: sourceWallet.currency,
-      sender: sourceUser.username,
-      recipient: destinationUser.username,
-      reference: transfer.id,
+      sourceUser,
+      destinationUser,
+      sourceWallet,
+      destinationWallet,
+      transfer,
+      debitTransaction,
+      creditTransaction,
+      idempotencyKey: dto.idempotencyKey,
     });
-
-    try {
-      const balanceAfterDebit = await this.walletService.getWalletBalance(
-        sourceWallet.id,
-      );
-      const balanceAfterCredit = await this.walletService.getWalletBalance(
-        destinationWallet.id,
-      );
-
-      await this.notificationService.sendWalletDebitNotificationEmail({
-        userEmail: sourceUser.email.trim(),
-        recipientName: `${sourceUser.firstName} ${sourceUser.lastName}`,
-        beneficiaryUsername: destinationUser.username,
-        debitAmount: dto.amount,
-        currency: sourceWallet.currency,
-        updatedBalance: balanceAfterDebit.availableBalance,
-        transactionId: debitTransaction.id,
-        occurredAt: debitTransaction.createdAt,
-      });
-
-      await this.notificationService.sendWalletCreditNotificationEmail({
-        userEmail: destinationUser.email.trim(),
-        recipientName: `${destinationUser.firstName} ${destinationUser.lastName}`,
-        senderUsername: sourceUser.username,
-        creditAmount: dto.amount,
-        currency: destinationWallet.currency,
-        updatedBalance: balanceAfterCredit.availableBalance,
-        transactionId: creditTransaction.id,
-        occurredAt: creditTransaction.createdAt,
-      });
-    } catch (err) {
-      this.logger.error(
-        `Failed to send transfer notification for transferId=${transfer.id}: ${err.message}`,
-      );
-    }
 
     return transfer;
   }

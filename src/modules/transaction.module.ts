@@ -13,6 +13,7 @@ import { PaymentModule } from './payment.module';
 import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
 import { HttpModule } from '@nestjs/axios';
 import { WebhookService } from 'src/services/webhook.service';
+import { AdminAnalyticsModule } from './admin-analytics.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { WebhookService } from 'src/services/webhook.service';
     NotificationModule,
     PaymentModule,
     HttpModule,
+    AdminAnalyticsModule,
   ],
   controllers: [TransactionController],
   providers: [TransactionService, WalletService, PaystackService],

@@ -10,6 +10,7 @@ import { AuthController } from 'src/controllers/auth.controller';
 import { AuthService } from 'src/services/auth.service';
 import { NotificationModule } from './notification.module';
 import { SlackNotificationModule } from './slack-notification.module';
+import { AdminAnalyticsModule } from './admin-analytics.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { SlackNotificationModule } from './slack-notification.module';
     HttpModule,
     NotificationModule,
     SlackNotificationModule,
+    AdminAnalyticsModule,
   ],
   providers: [AuthService],
   controllers: [AuthController],

@@ -22,6 +22,14 @@ import { WalletTopUpIntent } from 'src/entities/wallet-topup-intent.entity';
 import { PaystackModule } from './paystack.module';
 import { WalletCashoutIntent } from 'src/entities/wallet-cashout-intent.entity';
 import { WebhookModule } from './webhook.module';
+import { AdminAnalyticsModule } from './admin-analytics.module';
+import { AdminAnalytics } from 'src/entities/admin-analytics.entity';
+import { UserSignupEvent } from 'src/entities/user-sign-up-event.entity';
+import { UserTransactionStats } from 'src/entities/user-transaction-stats.entity';
+import { TransactionEvent } from 'src/entities/transaction-event.entity';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ListenersModule } from './listeners.module';
+import { AdminUserModule } from './admin-user-mgt.module';
 
 @Module({
   imports: [
@@ -29,6 +37,7 @@ import { WebhookModule } from './webhook.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    EventEmitterModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -41,6 +50,10 @@ import { WebhookModule } from './webhook.module';
           User,
           WalletTopUpIntent,
           WalletCashoutIntent,
+          AdminAnalytics,
+          UserSignupEvent,
+          UserTransactionStats,
+          TransactionEvent,
         ],
         synchronize: configService.get('NODE_ENV') === 'development',
         logging: configService.get('NODE_ENV') === 'development',
@@ -60,6 +73,9 @@ import { WebhookModule } from './webhook.module';
     WebhookModule,
     PaystackModule,
     WebhookModule,
+    AdminAnalyticsModule,
+    ListenersModule,
+    AdminUserModule,
   ],
   controllers: [AppController],
   providers: [AppService, CustomMigrationService, FirebaseAuthGuard],

@@ -6,6 +6,7 @@ import { WalletTopupTemplate } from '../../src//mail/templates/wallet-topup.temp
 import { WalletCreditedTemplate } from '../../src//mail/templates/wallet-credited.template';
 import { WalletDebitedTemplate } from '../../src//mail/templates/wallet-debited.template';
 import { WalletCashoutTemplate } from '../../src//mail/templates/wallet-cashout.template';
+import { formatDateTime } from 'src/utils/date.util';
 
 describe('NotificationService', () => {
   let service: NotificationService;
@@ -36,13 +37,14 @@ describe('NotificationService', () => {
   });
 
   it('should send wallet topup email', async () => {
+    const occurredAt = new Date('2025-09-04T10:00:00Z');
     const params = {
       userEmail: 'test@example.com',
       amount: 100,
       currency: 'USD',
       balanceAfter: 500,
       txId: 'tx123',
-      occurredAt: new Date('2025-09-04T10:00:00Z'),
+      occurredAt,
     };
 
     await service.sendWalletTopupNotificationEmail(params);
@@ -55,11 +57,10 @@ describe('NotificationService', () => {
         currency: 'USD',
         balanceAfter: '$500',
         txId: 'tx123',
-        occurredAt: expect.any(Date),
+        formattedDateTime: formatDateTime(occurredAt),
       }),
     );
   });
-
   it('should send wallet credit email', async () => {
     const occurredAt = new Date('2025-09-04T10:01:00Z');
     const params = {

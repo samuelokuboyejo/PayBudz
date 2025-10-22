@@ -13,6 +13,7 @@ import { UserService } from 'src/services/user.service';
 import { SlackNotificationService } from 'src/services/slack-notification.service';
 import * as UserContextUtil from 'src/utils/user-context.util';
 import { Request } from 'express';
+import { AdminAnalyticsService } from 'src/services/admin-analytics-service';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -28,6 +29,12 @@ describe('AuthService', () => {
     socket: { remoteAddress: '8.8.8.8' },
   } as unknown as Request;
 
+  const mockAdminAnalyticsService = {
+    incrementUsers: jest.fn(),
+    recordTransaction: jest.fn(),
+    updateUserTransactionStats: jest.fn(),
+    markWalletActive: jest.fn(),
+  };
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -98,6 +105,7 @@ describe('AuthService', () => {
             sendUserSignupNotification: jest.fn().mockResolvedValue(true),
           },
         },
+        { provide: AdminAnalyticsService, useValue: mockAdminAnalyticsService },
       ],
     }).compile();
 

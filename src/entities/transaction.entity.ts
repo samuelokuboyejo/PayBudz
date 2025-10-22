@@ -42,7 +42,7 @@ export class Transaction {
   })
   type: TransactionType;
 
-  @Column({name: 'idempotency_key'})
+  @Column({ name: 'idempotency_key' })
   idempotencyKey: string;
 
   @CreateDateColumn({ name: 'created_at' })

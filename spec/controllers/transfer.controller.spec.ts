@@ -49,7 +49,7 @@ describe('TransferController', () => {
         currency: SupportedCurrencies.USD,
       };
 
-      const mockReq = { user: { uid: 'source-user-id' } };
+      const mockReq = { user: { id: 'source-user-id' } };
 
       const mockResult = { id: 'transfer-id' };
       (service.transfer as jest.Mock).mockResolvedValue(mockResult);

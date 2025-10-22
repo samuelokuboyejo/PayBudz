@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InvalidTransactionStatusTransitionException } from '../exceptions/invalid.transaction.status.transition.exception';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Not } from 'typeorm';
 import { TransactionStatus } from '../enums/transaction-status.enum';
 import { Transaction } from 'src/entities/transaction.entity';
 import { SupportedCurrencies } from 'src/enums/currency.enum';
@@ -90,5 +94,53 @@ export class TransactionService {
       skip: (page - 1) * limit,
       take: limit,
     });
+  }
+
+  async getUserTransactionHistory(
+    user: any,
+    status?: string,
+    currency?: SupportedCurrencies,
+    sort: 'ASC' | 'DESC' = 'DESC',
+    page = 1,
+    limit = 20,
+  ): Promise<any[]> {
+    const walletId = user.wallets?.[currency];
+
+    if (!walletId) {
+      throw new BadRequestException(`No wallet found for currency ${currency}`);
+    }
+
+    const transactions = await this.findTransactions(
+      walletId,
+      status,
+      currency,
+      sort,
+      page,
+      limit,
+    );
+
+    const enrichedTransactions = await Promise.all(
+      transactions.map(async (tx) => {
+        const relatedTx = await this.transactionRepository.findOne({
+          where: {
+            idempotencyKey: tx.idempotencyKey,
+            walletId: Not(tx.walletId),
+          },
+        });
+
+        return {
+          id: tx.id,
+          amount: tx.amount,
+          currency: tx.currency,
+          status: tx.status,
+          type: tx.type,
+          createdAt: tx.createdAt,
+          sourceWalletId: tx.walletId,
+          destinationWalletId: relatedTx?.walletId || null,
+        };
+      }),
+    );
+
+    return enrichedTransactions;
   }
 }

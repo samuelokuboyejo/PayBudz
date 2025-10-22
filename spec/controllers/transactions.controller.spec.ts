@@ -17,6 +17,7 @@ describe('TransactionsController', () => {
           provide: TransactionService,
           useValue: {
             findTransactions: jest.fn(),
+            getUserTransactionHistory: jest.fn(),
           },
         },
       ],
@@ -31,34 +32,42 @@ describe('TransactionsController', () => {
     service = module.get<TransactionService>(TransactionService);
   });
 
-  it('should call findTransactions with correct params', async () => {
+  it('should call getUserTransactionHistory with correct params', async () => {
     const mockUser = { wallets: { USD: 'wallet1' } };
-    const mockTransactions: Transaction[] = [
+    const mockTransactions: any[] = [
       {
         id: 'tx1',
         walletId: 'wallet1',
+        amount: 500,
+        currency: 'USD',
+        type: 'CREDIT',
+        status: 'SUCCESSFUL',
         createdAt: new Date(),
-      } as unknown as Transaction,
+        sourceWalletId: 'wallet1',
+        destinationWalletId: null,
+      },
     ];
 
-    (service.findTransactions as jest.Mock).mockResolvedValue(mockTransactions);
+    (service.getUserTransactionHistory as jest.Mock).mockResolvedValue(
+      mockTransactions,
+    );
 
     const result = await controller.getTransactions(
       { user: mockUser } as any,
-      'completed',
+      'SUCCESSFUL',
       SupportedCurrencies.USD,
       'ASC',
-      2,
-      5,
+      1,
+      10,
     );
 
-    expect(service.findTransactions).toHaveBeenCalledWith(
-      'wallet1',
-      'completed',
+    expect(service.getUserTransactionHistory).toHaveBeenCalledWith(
+      mockUser,
+      'SUCCESSFUL',
       SupportedCurrencies.USD,
       'ASC',
-      2,
-      5,
+      1,
+      10,
     );
     expect(result).toEqual(mockTransactions);
   });

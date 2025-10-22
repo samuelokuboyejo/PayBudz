@@ -15,7 +15,7 @@ export class TransferController {
   @ApiOperation({ summary: 'Transfer funds to another user by username' })
   @Post()
   async transfer(@Body() dto: TransferDto, @Req() req: any) {
-    const sourceUserId = req.user.uid;
+    const sourceUserId = req.user.id;
     return this.transferService.transfer(sourceUserId, dto);
   }
 }

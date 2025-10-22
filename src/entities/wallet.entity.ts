@@ -24,4 +24,7 @@ export class Wallet {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @Column({ type: 'int', default: 0 })
+  transactionCount: number;
 }

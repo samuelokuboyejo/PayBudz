@@ -67,6 +67,9 @@ describe('UserService', () => {
       lastName: mockUser.lastName,
       email: mockUser.email,
       isVerified: mockUser.isVerified,
+      username: mockUser.username,
+      wallets: mockUser.wallets || null,
+      createdAt: mockUser.createdAt,
     });
   });
 

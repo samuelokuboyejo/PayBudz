@@ -12,6 +12,7 @@ import { NotificationModule } from './notification.module';
 import { SlackNotificationModule } from './slack-notification.module';
 import { WalletModule } from './wallet.module';
 import { PaymentModule } from './payment.module';
+import { AdminAnalyticsModule } from './admin-analytics.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PaymentModule } from './payment.module';
     SlackNotificationModule,
     WalletModule,
     PaymentModule,
+    AdminAnalyticsModule,
   ],
   controllers: [TransferController],
   providers: [TransferService, TransactionService, WalletService],

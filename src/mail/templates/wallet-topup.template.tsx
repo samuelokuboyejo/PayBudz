@@ -18,13 +18,13 @@ export interface WalletTopupTemplateData {
   currency: string;
   balanceAfter: string;
   txId: string;
-  occurredAt: Date;
+  formattedDateTime: string;
 }
 
 // for example
 export const WalletTopupTemplate: MailTemplate<WalletTopupTemplateData> = {
   subject: 'Wallet Top-Up Successful',
-  render: ({ amount, currency, balanceAfter, txId, occurredAt }) => (
+  render: ({ amount, currency, balanceAfter, txId, formattedDateTime }) => (
     <Html lang="en" dir="ltr">
       <Tailwind>
         <Head />
@@ -70,7 +70,7 @@ export const WalletTopupTemplate: MailTemplate<WalletTopupTemplateData> = {
                       Amount:
                     </Text>
                     <Text className="text-[16px] text-[#3498db] font-bold m-0">
-                      {currency} {amount}
+                      {amount}
                     </Text>
                   </div>
 
@@ -80,7 +80,7 @@ export const WalletTopupTemplate: MailTemplate<WalletTopupTemplateData> = {
                         New Wallet Balance:
                       </Text>
                       <Text className="text-[14px] text-[#2c3e50] font-semibold m-0">
-                        {currency} {balanceAfter}
+                        {balanceAfter}
                       </Text>
                     </div>
                   )}
@@ -99,7 +99,7 @@ export const WalletTopupTemplate: MailTemplate<WalletTopupTemplateData> = {
                       Date & Time:
                     </Text>
                     <Text className="text-[14px] text-[#2c3e50] m-0">
-                      {occurredAt}
+                      {formattedDateTime}
                     </Text>
                   </div>
                 </div>
